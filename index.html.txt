@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My 3D Print Shop</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <h2>🧩 My 3D Shop</h2>
+    <button class="nav active" onclick="showPage('home')">Home</button>
+    <button class="nav" onclick="showPage('shop')">Shop</button>
+
+    <div class="loginArea">
+      <button id="loginBtn" onclick="login()">Login</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="account">👤 <span id="userName">Guest</span></div>
+      <input id="search" placeholder="Search products..." oninput="renderProducts()">
+      <button onclick="openCart()">🛒 <span id="cartCount">0</span></button>
+    </div>
+
+    <!-- Home Page -->
+    <section id="home">
+      <h1>Featured Prints</h1>
+      <div id="featured" class="grid"></div>
+    </section>
+
+    <!-- Shop Page -->
+    <section id="shop" class="hidden">
+      <h1>Shop</h1>
+      <div id="shopGrid" class="grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Cart -->
+<div id="cart" class="cart hidden">
+  <h2>Your Cart</h2>
+  <div id="cartItems"></div>
+  <h3 id="total"></h3>
+  <button onclick="checkout()">Checkout</button>
+  <button onclick="closeCart()">Close</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
