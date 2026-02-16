@@ -8,6 +8,12 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
   authDomain: "dprintinglogin.firebaseapp.com",
@@ -16,6 +22,9 @@ const firebaseConfig = {
   messagingSenderId: "285262720729",
   appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);

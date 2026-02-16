@@ -202,36 +202,33 @@
   </div>
 
   <!-- LOGIN / SIGNUP MODAL -->
-  <div id="loginBackdrop" class="backdrop hidden"></div>
-  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modalTop">
-      <h2 id="authTitle">Log in</h2>
-      <button id="authCloseBtn" class="ghostBtn">Close</button>
-    </div>
+<div id="loginBackdrop" class="backdrop hidden"></div>
 
-    <div class="modalBody">
-      <label class="field">
-        <span>Email</span>
-        <input id="authEmail" type="email" placeholder="you@example.com" />
-      </label>
-
-      <label class="field">
-        <span>Password</span>
-        <input id="authPass" type="password" placeholder="Password" />
-      </label>
-
-      <div class="row gap">
-        <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
-        <button id="authSwitchBtn" class="ghostBtn" type="button">Sign up</button>
-      </div>
-
-      <p id="authError" class="tiny muted" style="margin-top:10px;"></p>
-      <p class="tiny muted" style="margin-top:10px;">
-        Tip: After you sign up once, you can log in from any device.
-      </p>
-    </div>
+<div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modalTop">
+    <h2 id="authTitle">Log in</h2>
+    <button id="authCloseBtn" class="ghostBtn">Close</button>
   </div>
 
-  <script type="module" src="app.js"></script>
-</body>
-</html>
+  <label class="field">
+    <span>Email</span>
+    <input id="authEmail" type="email" placeholder="you@example.com" />
+  </label>
+
+  <label class="field">
+    <span>Password</span>
+    <input id="authPass" type="password" placeholder="Password" />
+  </label>
+
+  <p id="authError" class="tiny muted" style="margin:8px 0 0;"></p>
+
+  <div class="row" style="margin-top:12px;">
+    <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
+    <button id="authSwitchBtn" class="ghostBtn">Sign up</button>
+  </div>
+
+  <div class="tiny muted" style="margin-top:10px;">
+    <span id="authSwitchText">Don’t have an account?</span>
+  </div>
+</div>
+S
