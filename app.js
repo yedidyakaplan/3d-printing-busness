@@ -1,6 +1,6 @@
-// 🔥 Firebase SDK
+// 🔥 Firebase (Auth only)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { 
+import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -8,6 +8,7 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+// ✅ Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyC1okeekPQh7RUXWsVG0Kk5laDXzNrdr48",
   authDomain: "dprintinglogin.firebaseapp.com",
@@ -17,13 +18,18 @@ const firebaseConfig = {
   appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
 
-const ADMIN_EMAIL = "yedidyakap@gmail.com"; // <-- CHANGE THIS to your admin email
+// ---------- CONFIG ----------
+const ADMIN_EMAIL = "yedidyakap@gmail.com"; // <-- your admin email
 const CURRENCY = "ILS";
 
-// ========= STORAGE =========
+// ---------- HELPERS ----------
+const el = (id) => document.getElementById(id);
+const money = (n) => new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(n || 0);
+const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+
 const store = {
   get(key, fallback) {
     try {
@@ -38,382 +44,413 @@ const store = {
   }
 };
 
-let state = {
-  user: store.get("user", null), // { email }
-  cart: store.get("cart", []),   // [{id, qty}]
-  products: store.get("products", []), // [{id,name,desc,price,imgDataUrl}]
-  search: ""
+// ---------- STATE ----------
+const state = {
+  products: store.get("products", []),
+  cart: store.get("cart", []), // [{id, qty}]
+  selectedId: null,
+  user: null
 };
 
-// Remove all demo items: start empty unless you already added items.
+// If empty, start with nothing (you asked to remove existing items)
 if (!Array.isArray(state.products)) state.products = [];
-store.set("products", state.products);
+if (!Array.isArray(state.cart)) state.cart = [];
 
-// ========= HELPERS =========
-const money = (n) =>
-  new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(n || 0);
-
-const uid = () => "p_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
-
-function isAdmin() {
-  return !!state.user?.email && state.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-}
-
-function saveAll() {
-  store.set("user", state.user);
-  store.set("cart", state.cart);
+function save() {
   store.set("products", state.products);
+  store.set("cart", state.cart);
 }
 
-// ========= DOM =========
-const pages = {
-  home: document.getElementById("page-home"),
-  shop: document.getElementById("page-shop"),
-  admin: document.getElementById("page-admin"),
-};
-const navItems = [...document.querySelectorAll(".navItem")];
+// ---------- NAV ----------
+const pages = ["home", "shop", "admin"];
 
-const featuredGrid = document.getElementById("featuredGrid");
-const shopGrid = document.getElementById("shopGrid");
+function showPage(page) {
+  pages.forEach(p => el(`page-${p}`).classList.add("hidden"));
+  el(`page-${page}`).classList.remove("hidden");
 
-const adminTab = document.getElementById("adminTab");
-const adminList = document.getElementById("adminList");
-const addItemBtn = document.getElementById("addItemBtn");
-const aName = document.getElementById("aName");
-const aDesc = document.getElementById("aDesc");
-const aPrice = document.getElementById("aPrice");
-const aImg = document.getElementById("aImg");
+  document.querySelectorAll(".navItem").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.page === page);
+  });
 
-const accountBtn = document.getElementById("accountBtn");
-const accountLabel = document.getElementById("accountLabel");
-const loginBtnSidebar = document.getElementById("loginBtnSidebar");
-const logoutBtnSidebar = document.getElementById("logoutBtnSidebar");
-
-const searchInput = document.getElementById("searchInput");
-const searchClear = document.getElementById("searchClear");
-
-const cartBtn = document.getElementById("cartBtn");
-const cartCount = document.getElementById("cartCount");
-const cartBackdrop = document.getElementById("cartBackdrop");
-const cartDrawer = document.getElementById("cartDrawer");
-const closeCart = document.getElementById("closeCart");
-const cartItems = document.getElementById("cartItems");
-const cartTotal = document.getElementById("cartTotal");
-const checkoutBtn = document.getElementById("checkoutBtn");
-
-const modalBackdrop = document.getElementById("modalBackdrop");
-const loginModal = document.getElementById("loginModal");
-const loginEmail = document.getElementById("loginEmail");
-const loginSubmit = document.getElementById("loginSubmit");
-const loginCancel = document.getElementById("loginCancel");
-
-const productModal = document.getElementById("productModal");
-const pTitle = document.getElementById("pTitle");
-const pImage = document.getElementById("pImage");
-const pPrice = document.getElementById("pPrice");
-const pDesc = document.getElementById("pDesc");
-const pClose = document.getElementById("pClose");
-const pBuyNow = document.getElementById("pBuyNow");
-const pAddCart = document.getElementById("pAddCart");
-
-const checkoutModal = document.getElementById("checkoutModal");
-const cPhone = document.getElementById("cPhone");
-const cAddress = document.getElementById("cAddress");
-const placeOrderBtn = document.getElementById("placeOrderBtn");
-const checkoutCancel = document.getElementById("checkoutCancel");
-
-const ctaShop = document.getElementById("ctaShop");
-const ctaFeatured = document.getElementById("ctaFeatured");
-
-// ========= NAV =========
-function setPage(page) {
-  Object.values(pages).forEach(p => p.classList.add("hidden"));
-  pages[page].classList.remove("hidden");
-  navItems.forEach(btn => btn.classList.toggle("active", btn.dataset.page === page));
+  // Re-render when switching
+  renderAll();
 }
 
-navItems.forEach(btn => btn.addEventListener("click", () => setPage(btn.dataset.page)));
-ctaShop.addEventListener("click", () => setPage("shop"));
-ctaFeatured.addEventListener("click", () => window.scrollTo({ top: 500, behavior: "smooth" }));
-
-// ========= MODALS =========
-function openModal(which) {
-  modalBackdrop.classList.remove("hidden");
-  which.classList.remove("hidden");
-}
-function closeModals() {
-  modalBackdrop.classList.add("hidden");
-  loginModal.classList.add("hidden");
-  productModal.classList.add("hidden");
-  checkoutModal.classList.add("hidden");
-}
-modalBackdrop.addEventListener("click", closeModals);
-loginCancel.addEventListener("click", closeModals);
-pClose.addEventListener("click", closeModals);
-checkoutCancel.addEventListener("click", closeModals);
-
-// ========= LOGIN =========
-function renderUser() {
-  const email = state.user?.email;
-  accountLabel.textContent = email ? email : "Guest";
-
-  if (email) {
-    loginBtnSidebar.classList.add("hidden");
-    logoutBtnSidebar.classList.remove("hidden");
-  } else {
-    loginBtnSidebar.classList.remove("hidden");
-    logoutBtnSidebar.classList.add("hidden");
-  }
-
-  if (isAdmin()) adminTab.classList.remove("hidden");
-  else adminTab.classList.add("hidden");
-}
-
-loginBtnSidebar.addEventListener("click", () => {
-  loginEmail.value = "";
-  openModal(loginModal);
-  loginEmail.focus();
+document.querySelectorAll(".navItem").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const page = btn.dataset.page;
+    if (page === "admin" && !isAdmin()) return;
+    showPage(page);
+  });
 });
 
-accountBtn.addEventListener("click", () => {
-  if (!state.user?.email) {
-    openModal(loginModal);
-    loginEmail.focus();
+el("ctaShop").addEventListener("click", () => showPage("shop"));
+el("ctaFeatured").addEventListener("click", () => {
+  document.getElementById("featuredGrid")?.scrollIntoView({ behavior: "smooth" });
+});
+
+// ---------- SEARCH ----------
+el("searchInput").addEventListener("input", () => renderAll());
+el("searchClear").addEventListener("click", () => {
+  el("searchInput").value = "";
+  renderAll();
+});
+
+// ---------- AUTH MODAL ----------
+let authMode = "login"; // 'login' | 'signup'
+
+function openAuthModal() {
+  el("loginBackdrop").classList.remove("hidden");
+  el("loginModal").classList.remove("hidden");
+  el("authError").textContent = "";
+  syncAuthUI();
+}
+
+function closeAuthModal() {
+  el("loginBackdrop").classList.add("hidden");
+  el("loginModal").classList.add("hidden");
+}
+
+function syncAuthUI() {
+  const isLogin = authMode === "login";
+  el("authTitle").textContent = isLogin ? "Log in" : "Sign up";
+  el("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
+  el("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
+}
+
+async function doAuthPrimary() {
+  const email = el("authEmail").value.trim();
+  const pass = el("authPass").value;
+  el("authError").textContent = "";
+
+  if (!email || !pass) {
+    el("authError").textContent = "Enter email + password.";
     return;
   }
-  // quick info for now
-  alert(`Logged in as: ${state.user.email}${isAdmin() ? "\n(Admin)" : ""}`);
-});
 
-loginSubmit.addEventListener("click", () => {
-  const email = (loginEmail.value || "").trim();
-  if (!email || !email.includes("@")) return alert("Enter a valid email.");
-  state.user = { email };
-  saveAll();
-  closeModals();
-  renderUser();
-  renderAdmin();
-});
-
-logoutBtnSidebar.addEventListener("click", () => {
-  state.user = null;
-  saveAll();
-  renderUser();
-  renderAdmin();
-});
-
-// ========= SEARCH =========
-searchInput.addEventListener("input", () => {
-  state.search = searchInput.value.trim().toLowerCase();
-  renderProducts();
-});
-searchClear.addEventListener("click", () => {
-  searchInput.value = "";
-  state.search = "";
-  renderProducts();
-});
-
-function matchesSearch(p) {
-  if (!state.search) return true;
-  const blob = `${p.name} ${p.desc}`.toLowerCase();
-  return blob.includes(state.search);
+  try {
+    if (authMode === "signup") {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+    closeAuthModal();
+  } catch (err) {
+    el("authError").textContent = err?.message || "Auth failed";
+  }
 }
 
-// ========= PRODUCTS UI =========
+el("loginBtn").addEventListener("click", openAuthModal);
+el("authCloseBtn").addEventListener("click", closeAuthModal);
+el("loginBackdrop").addEventListener("click", closeAuthModal);
+el("authPrimaryBtn").addEventListener("click", doAuthPrimary);
+el("authSwitchBtn").addEventListener("click", () => {
+  authMode = authMode === "login" ? "signup" : "login";
+  syncAuthUI();
+});
+el("logoutBtn").addEventListener("click", () => signOut(auth));
+
+function isAdmin() {
+  return !!state.user && state.user.email === ADMIN_EMAIL;
+}
+
+onAuthStateChanged(auth, (user) => {
+  state.user = user || null;
+
+  // UI
+  el("loginBtn").classList.toggle("hidden", !!user);
+  el("logoutBtn").classList.toggle("hidden", !user);
+  el("userEmail").textContent = user ? user.email : "Guest";
+  el("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
+
+  // Admin
+  el("navAdmin").classList.toggle("hidden", !isAdmin());
+
+  // If user logged out while on admin page, kick them to home
+  const adminVisible = !el("page-admin").classList.contains("hidden");
+  if (adminVisible && !isAdmin()) showPage("home");
+
+  renderAll();
+});
+
+// ---------- PRODUCT RENDER ----------
 function productCard(p) {
   const div = document.createElement("div");
-  div.className = "card";
+  div.className = "itemCard";
   div.innerHTML = `
-    <div class="thumb">${p.imgDataUrl ? `<img alt="${p.name}" src="${p.imgDataUrl}">` : "📦"}</div>
-    <div class="titleRow">
-      <h3>${p.name}</h3>
-      <div class="price">${money(p.price)}</div>
+    <div class="itemImg" style="background-image:url('${p.img || ""}')"></div>
+    <div class="itemBody">
+      <div class="itemName">${escapeHtml(p.name)}</div>
+      <div class="itemDesc">${escapeHtml(p.desc || "")}</div>
+      <div class="itemPrice">${money(p.price)}</div>
     </div>
-    <p class="desc">${p.desc || ""}</p>
-    <button class="ghostBtn" data-open="${p.id}">View</button>
   `;
-  div.querySelector("[data-open]").addEventListener("click", () => openProduct(p.id));
+  div.addEventListener("click", () => openProduct(p.id));
   return div;
 }
 
-function renderProducts() {
-  const filtered = state.products.filter(matchesSearch);
+function renderFeatured() {
+  const grid = el("featuredGrid");
+  grid.innerHTML = "";
 
-  featuredGrid.innerHTML = "";
-  shopGrid.innerHTML = "";
-
-  filtered.slice(0, 4).forEach(p => featuredGrid.appendChild(productCard(p)));
-  filtered.forEach(p => shopGrid.appendChild(productCard(p)));
-
-  if (state.products.length === 0) {
-    featuredGrid.innerHTML = `<div class="muted">No products yet. Log in as admin and add items.</div>`;
-    shopGrid.innerHTML = `<div class="muted">No products yet. Log in as admin and add items.</div>`;
+  const list = state.products.slice(0, 6);
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="muted">No products yet. Log in as admin and add items.</div>`;
+    return;
   }
+
+  list.forEach(p => grid.appendChild(productCard(p)));
 }
 
-// ========= PRODUCT MODAL =========
-let currentProductId = null;
+function renderShop() {
+  const grid = el("shopGrid");
+  grid.innerHTML = "";
 
+  const q = el("searchInput").value.trim().toLowerCase();
+  const list = state.products.filter(p => {
+    if (!q) return true;
+    const hay = (p.name + " " + (p.desc || "")).toLowerCase();
+    return hay.includes(q);
+  });
+
+  if (list.length === 0) {
+    grid.innerHTML = `<div class="muted">No matching products.</div>`;
+    return;
+  }
+
+  list.forEach(p => grid.appendChild(productCard(p)));
+}
+
+// ---------- PRODUCT MODAL ----------
 function openProduct(id) {
+  state.selectedId = id;
   const p = state.products.find(x => x.id === id);
   if (!p) return;
-  currentProductId = id;
 
-  pTitle.textContent = p.name;
-  pDesc.textContent = p.desc || "";
-  pPrice.textContent = money(p.price);
+  el("pTitle").textContent = p.name;
+  el("pDesc").textContent = p.desc || "";
+  el("pPrice").textContent = money(p.price);
+  el("pImage").style.backgroundImage = `url('${p.img || ""}')`;
 
-  pImage.innerHTML = p.imgDataUrl ? `<img alt="${p.name}" src="${p.imgDataUrl}">` : "📦";
-
-  openModal(productModal);
+  el("modalBackdrop").classList.remove("hidden");
+  el("productModal").classList.remove("hidden");
 }
 
-pAddCart.addEventListener("click", () => {
-  if (!currentProductId) return;
-  addToCart(currentProductId);
-  closeModals();
+function closeProduct() {
+  el("modalBackdrop").classList.add("hidden");
+  el("productModal").classList.add("hidden");
+  state.selectedId = null;
+}
+
+el("pClose").addEventListener("click", closeProduct);
+el("modalBackdrop").addEventListener("click", closeProduct);
+
+el("pAddCart").addEventListener("click", () => {
+  const id = state.selectedId;
+  if (!id) return;
+  addToCart(id, 1);
+  closeProduct();
 });
 
-pBuyNow.addEventListener("click", () => {
-  if (!currentProductId) return;
-  addToCart(currentProductId);
-  closeModals();
+el("pBuyNow").addEventListener("click", () => {
+  const id = state.selectedId;
+  if (!id) return;
+  addToCart(id, 1);
+  closeProduct();
   openCheckout();
 });
 
-// ========= CART =========
-function cartQtyFor(id) {
+// ---------- CART ----------
+function addToCart(id, qty) {
   const item = state.cart.find(x => x.id === id);
-  return item ? item.qty : 0;
+  if (item) item.qty += qty;
+  else state.cart.push({ id, qty });
+  save();
+  renderCartBadge();
 }
-function addToCart(id) {
-  const item = state.cart.find(x => x.id === id);
-  if (item) item.qty += 1;
-  else state.cart.push({ id, qty: 1 });
-  saveAll();
-  renderCart();
-}
+
 function removeFromCart(id) {
   state.cart = state.cart.filter(x => x.id !== id);
-  saveAll();
-  renderCart();
+  save();
+  renderAll();
 }
-function changeQty(id, delta) {
+
+function setQty(id, qty) {
   const item = state.cart.find(x => x.id === id);
   if (!item) return;
-  item.qty += delta;
-  if (item.qty <= 0) removeFromCart(id);
-  saveAll();
-  renderCart();
+  item.qty = Math.max(1, qty);
+  save();
+  renderAll();
 }
-function calcTotal() {
+
+function cartCount() {
+  return state.cart.reduce((a, b) => a + (b.qty || 0), 0);
+}
+
+function cartTotal() {
   let total = 0;
-  for (const item of state.cart) {
-    const p = state.products.find(pp => pp.id === item.id);
+  for (const c of state.cart) {
+    const p = state.products.find(x => x.id === c.id);
     if (!p) continue;
-    total += (p.price || 0) * item.qty;
+    total += (p.price || 0) * (c.qty || 0);
   }
   return total;
 }
-function renderCart() {
-  const count = state.cart.reduce((sum, x) => sum + x.qty, 0);
-  cartCount.textContent = count;
 
-  cartItems.innerHTML = "";
+function renderCartBadge() {
+  el("cartCount").textContent = String(cartCount());
+}
+
+function openCart() {
+  el("cartBackdrop").classList.remove("hidden");
+  el("cartDrawer").classList.remove("hidden");
+  renderCart();
+}
+
+function closeCart() {
+  el("cartBackdrop").classList.add("hidden");
+  el("cartDrawer").classList.add("hidden");
+}
+
+el("cartBtn").addEventListener("click", openCart);
+el("closeCart").addEventListener("click", closeCart);
+el("cartBackdrop").addEventListener("click", closeCart);
+
+function renderCart() {
+  const wrap = el("cartItems");
+  wrap.innerHTML = "";
+
   if (state.cart.length === 0) {
-    cartItems.innerHTML = `<div class="muted">Your cart is empty.</div>`;
-    cartTotal.textContent = money(0);
+    wrap.innerHTML = `<div class="muted">Your cart is empty.</div>`;
+    el("cartTotal").textContent = money(0);
     return;
   }
 
-  for (const item of state.cart) {
-    const p = state.products.find(pp => pp.id === item.id);
-    if (!p) continue;
+  state.cart.forEach(c => {
+    const p = state.products.find(x => x.id === c.id);
+    if (!p) return;
 
-    const div = document.createElement("div");
-    div.className = "cartItem";
-    div.innerHTML = `
-      <div class="cartRow">
-        <div><strong>${p.name}</strong></div>
-        <button class="ghostBtn" data-remove="${p.id}">Remove</button>
+    const row = document.createElement("div");
+    row.className = "cartRow";
+    row.innerHTML = `
+      <div class="left">
+        <div class="name">${escapeHtml(p.name)}</div>
+        <div class="muted">${money(p.price)} • Qty: ${c.qty}</div>
       </div>
-      <div class="cartRow">
-        <div class="muted">${money(p.price)} each</div>
-        <div class="cartRow">
-          <button class="ghostBtn" data-dec="${p.id}">−</button>
-          <strong>${item.qty}</strong>
-          <button class="ghostBtn" data-inc="${p.id}">+</button>
-        </div>
+      <div class="right row">
+        <button class="smallBtn" data-action="minus">-</button>
+        <button class="smallBtn" data-action="plus">+</button>
+        <button class="smallBtn" data-action="remove">Remove</button>
       </div>
     `;
-    cartItems.appendChild(div);
-  }
 
-  cartItems.querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", () => removeFromCart(b.dataset.remove)));
-  cartItems.querySelectorAll("[data-inc]").forEach(b => b.addEventListener("click", () => changeQty(b.dataset.inc, +1)));
-  cartItems.querySelectorAll("[data-dec]").forEach(b => b.addEventListener("click", () => changeQty(b.dataset.dec, -1)));
+    row.querySelector('[data-action="minus"]').addEventListener("click", () => setQty(c.id, c.qty - 1));
+    row.querySelector('[data-action="plus"]').addEventListener("click", () => setQty(c.id, c.qty + 1));
+    row.querySelector('[data-action="remove"]').addEventListener("click", () => removeFromCart(c.id));
 
-  cartTotal.textContent = money(calcTotal());
+    wrap.appendChild(row);
+  });
+
+  el("cartTotal").textContent = money(cartTotal());
 }
 
-// drawer
-function openCart() {
-  cartBackdrop.classList.remove("hidden");
-  cartDrawer.classList.remove("hidden");
-}
-function closeCartDrawer() {
-  cartBackdrop.classList.add("hidden");
-  cartDrawer.classList.add("hidden");
-}
-cartBtn.addEventListener("click", openCart);
-closeCart.addEventListener("click", closeCartDrawer);
-cartBackdrop.addEventListener("click", closeCartDrawer);
-
-// ========= CHECKOUT =========
+// ---------- CHECKOUT ----------
 function openCheckout() {
-  if (!state.user?.email) {
-    alert("You must be logged in to buy.");
-    openModal(loginModal);
+  if (!state.user) {
+    openAuthModal();
     return;
   }
-  if (state.cart.length === 0) return alert("Your cart is empty.");
-  cPhone.value = "";
-  cAddress.value = "";
-  openModal(checkoutModal);
+  if (state.cart.length === 0) {
+    alert("Your cart is empty.");
+    return;
+  }
+
+  el("checkoutBackdrop").classList.remove("hidden");
+  el("checkoutModal").classList.remove("hidden");
 }
 
-checkoutBtn.addEventListener("click", openCheckout);
+function closeCheckout() {
+  el("checkoutBackdrop").classList.add("hidden");
+  el("checkoutModal").classList.add("hidden");
+}
 
-placeOrderBtn.addEventListener("click", () => {
-  const phone = (cPhone.value || "").trim();
-  const address = (cAddress.value || "").trim();
-  if (!phone) return alert("Enter your phone number.");
-  if (!address) return alert("Enter your address.");
+el("checkoutBtn").addEventListener("click", openCheckout);
+el("checkoutCancel").addEventListener("click", closeCheckout);
+el("checkoutCancel2").addEventListener("click", closeCheckout);
+el("checkoutBackdrop").addEventListener("click", closeCheckout);
 
-  // Placeholder order
-  const total = money(calcTotal());
-  alert(
-    `Order created (demo) ✅\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${address}\nTotal: ${total}\n\nNext step: real payment (Stripe).`
-  );
+el("placeOrderBtn").addEventListener("click", () => {
+  if (!state.user) {
+    openAuthModal();
+    return;
+  }
+  const phone = el("cPhone").value.trim();
+  const addr = el("cAddress").value.trim();
 
-  // clear cart after demo order
+  if (!phone || !addr) {
+    alert("Please enter phone number and address.");
+    return;
+  }
+
+  // Demo order: just confirm and clear cart
+  alert(`Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`);
+
   state.cart = [];
-  saveAll();
-  renderCart();
-  closeModals();
-  closeCartDrawer();
+  save();
+  renderAll();
+  closeCheckout();
+  closeCart();
 });
 
-// ========= ADMIN =========
-function renderAdmin() {
+// ---------- ADMIN ----------
+el("addItemBtn").addEventListener("click", async () => {
   if (!isAdmin()) {
-    adminList.innerHTML = `<div class="muted">Log in as admin (${ADMIN_EMAIL}) to manage items.</div>`;
+    alert("Admin only.");
     return;
   }
 
-  adminList.innerHTML = "";
+  const name = el("aName").value.trim();
+  const desc = el("aDesc").value.trim();
+  const price = Number(el("aPrice").value);
+  const file = el("aImg").files?.[0];
+
+  if (!name || !Number.isFinite(price)) {
+    alert("Enter name + price.");
+    return;
+  }
+
+  let img = "";
+  if (file) img = await fileToDataUrl(file);
+
+  state.products.unshift({
+    id: uid(),
+    name,
+    desc,
+    price,
+    img
+  });
+
+  // clear fields
+  el("aName").value = "";
+  el("aDesc").value = "";
+  el("aPrice").value = "";
+  el("aImg").value = "";
+
+  save();
+  renderAll();
+});
+
+function renderAdmin() {
+  const list = el("adminList");
+  list.innerHTML = "";
+
+  if (!isAdmin()) {
+    list.innerHTML = `<div class="muted">Log in with admin email to manage products.</div>`;
+    return;
+  }
+
   if (state.products.length === 0) {
-    adminList.innerHTML = `<div class="muted">No items yet. Add your first one.</div>`;
+    list.innerHTML = `<div class="muted">No products yet.</div>`;
     return;
   }
 
@@ -422,66 +459,51 @@ function renderAdmin() {
     row.className = "adminRow";
     row.innerHTML = `
       <div>
-        <strong>${p.name}</strong>
+        <div class="name">${escapeHtml(p.name)}</div>
         <div class="tiny muted">${money(p.price)}</div>
       </div>
-      <button class="dangerBtn" data-del="${p.id}">Delete</button>
+      <div class="right">
+        <button class="smallBtn">Delete</button>
+      </div>
     `;
-    row.querySelector("[data-del]").addEventListener("click", () => {
+    row.querySelector("button").addEventListener("click", () => {
       if (!confirm(`Delete "${p.name}"?`)) return;
       state.products = state.products.filter(x => x.id !== p.id);
-      // also remove from cart
       state.cart = state.cart.filter(x => x.id !== p.id);
-      saveAll();
-      renderProducts();
-      renderCart();
-      renderAdmin();
+      save();
+      renderAll();
     });
-    adminList.appendChild(row);
+    list.appendChild(row);
   });
 }
 
-async function fileToDataUrl(file) {
+// ---------- RENDER ALL ----------
+function renderAll() {
+  renderFeatured();
+  renderShop();
+  renderCartBadge();
+  renderCart();
+  renderAdmin();
+}
+
+renderAll();
+showPage("home");
+
+// ---------- UTIL ----------
+function escapeHtml(s) {
+  return String(s || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
+    r.onload = () => resolve(String(r.result || ""));
     r.onerror = reject;
     r.readAsDataURL(file);
   });
 }
-
-addItemBtn.addEventListener("click", async () => {
-  if (!isAdmin()) return alert("Admin only.");
-
-  const name = (aName.value || "").trim();
-  const desc = (aDesc.value || "").trim();
-  const price = Number(aPrice.value);
-
-  if (!name) return alert("Add a name.");
-  if (!Number.isFinite(price) || price < 0) return alert("Add a valid price in ₪.");
-
-  let imgDataUrl = "";
-  if (aImg.files && aImg.files[0]) {
-    const file = aImg.files[0];
-    imgDataUrl = await fileToDataUrl(file);
-  }
-
-  state.products.unshift({ id: uid(), name, desc, price, imgDataUrl });
-  saveAll();
-
-  aName.value = "";
-  aDesc.value = "";
-  aPrice.value = "";
-  aImg.value = "";
-
-  renderProducts();
-  renderAdmin();
-  alert("Item added ✅");
-});
-
-// ========= INIT =========
-renderUser();
-renderProducts();
-renderCart();
-renderAdmin();
-setPage("home");

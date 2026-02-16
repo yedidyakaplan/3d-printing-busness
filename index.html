@@ -20,12 +20,15 @@
       <nav class="nav">
         <button class="navItem active" data-page="home">Home</button>
         <button class="navItem" data-page="shop">Shop</button>
-        <button id="adminTab" class="navItem hidden" data-page="admin">Admin</button>
+        <button id="navAdmin" class="navItem hidden" data-page="admin">Admin</button>
       </nav>
 
       <div class="sidebarBottom">
-        <button id="loginBtnSidebar" class="loginBtn">Log in</button>
-        <button id="logoutBtnSidebar" class="ghostBtn hidden">Log out</button>
+        <button id="loginBtn" class="loginBtn">Log in</button>
+        <button id="logoutBtn" class="ghostBtn hidden">Log out</button>
+        <div class="tiny">
+          <span class="muted">Signed in as: </span><span id="userEmail">Guest</span>
+        </div>
         <div class="tiny muted">Green/Blue theme • ₪ ILS</div>
       </div>
     </aside>
@@ -55,7 +58,7 @@
           <div class="heroText">
             <div class="heroKicker">3D Printed • Made for you</div>
             <h1 class="heroTitle">Fresh prints, clean quality.</h1>
-            <p class="heroSub">Browse items, pick options, and order in seconds.</p>
+            <p class="heroSub">Browse items, choose options, and order fast.</p>
             <div class="heroActions">
               <button class="primaryBtn" id="ctaShop">Shop now</button>
               <button class="ghostBtn" id="ctaFeatured">View featured</button>
@@ -64,7 +67,7 @@
           <div class="heroArt">
             <div class="glowCard">
               <div class="glowTitle">Featured drops</div>
-              <div class="glowSub">New items every week</div>
+              <div class="glowSub">New items whenever you add them</div>
             </div>
           </div>
         </div>
@@ -89,7 +92,7 @@
       <section id="page-admin" class="page hidden">
         <div class="sectionHeader">
           <h2>Admin</h2>
-          <p class="muted">Add / remove items (stored in your browser for now)</p>
+          <p class="muted">Only visible when you log in with your admin email</p>
         </div>
 
         <div class="adminWrap">
@@ -114,7 +117,7 @@
             <label class="field">
               <span>Image</span>
               <input id="aImg" type="file" accept="image/*" />
-              <div class="tiny muted">Tip: use a square-ish photo for best look.</div>
+              <div class="tiny muted">Tip: square-ish photo looks best.</div>
             </label>
 
             <button id="addItemBtn" class="primaryBtn">Add item</button>
@@ -141,10 +144,11 @@
       <div class="pInfo">
         <div id="pPrice" class="pPrice">₪0</div>
         <p id="pDesc" class="muted"></p>
-        <div class="row">
+        <div class="row gap">
           <button id="pBuyNow" class="primaryBtn">Buy now</button>
           <button id="pAddCart" class="ghostBtn">Add to cart</button>
         </div>
+        <div class="tiny muted" style="margin-top:10px;">You must be logged in to buy.</div>
       </div>
     </div>
   </div>
@@ -163,52 +167,71 @@
         <div id="cartTotal" class="total">₪0.00</div>
       </div>
       <button id="checkoutBtn" class="primaryBtn">Checkout</button>
-      <div class="tiny muted">Payments: next step (Stripe) after we move off GitHub Pages.</div>
+      <div class="tiny muted">Payments: next step (Stripe) when you add a backend.</div>
     </div>
   </aside>
 
-  <!-- LOGIN MODAL -->
-  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
-    <h2>Log in</h2>
-    <p class="muted">For now this is a simple demo login (email only).</p>
-
-    <label class="field">
-      <span>Email</span>
-      <input id="loginEmail" placeholder="you@email.com" />
-    </label>
-
-    <div class="row">
-      <button id="loginSubmit" class="primaryBtn">Log in</button>
-      <button id="loginCancel" class="ghostBtn">Cancel</button>
+  <!-- CHECKOUT MODAL -->
+  <div id="checkoutBackdrop" class="backdrop hidden"></div>
+  <div id="checkoutModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <h2>Checkout</h2>
+      <button id="checkoutCancel" class="ghostBtn">Close</button>
     </div>
 
-    <div class="tiny muted">Admin will work only for one email (we set it in app.js).</div>
+    <div class="modalBody">
+      <p class="muted">Enter delivery details (payments later).</p>
+
+      <label class="field">
+        <span>Phone number</span>
+        <input id="cPhone" placeholder="e.g., 05X-XXXXXXX" />
+      </label>
+
+      <label class="field">
+        <span>Address</span>
+        <input id="cAddress" placeholder="City, street, building, apartment..." />
+      </label>
+
+      <div class="row gap">
+        <button id="placeOrderBtn" class="primaryBtn">Place order</button>
+        <button id="checkoutCancel2" class="ghostBtn">Cancel</button>
+      </div>
+
+      <div class="tiny muted">Later we will connect Stripe and store orders in a database.</div>
+    </div>
   </div>
 
-  <!-- CHECKOUT MODAL -->
-  <div id="checkoutModal" class="modal hidden" role="dialog" aria-modal="true">
-    <h2>Checkout</h2>
-    <p class="muted">Enter delivery details (payments next step).</p>
-
-    <label class="field">
-      <span>Phone number</span>
-      <input id="cPhone" placeholder="e.g., 05X-XXXXXXX" />
-    </label>
-
-    <label class="field">
-      <span>Address</span>
-      <input id="cAddress" placeholder="City, street, building, apartment..." />
-    </label>
-
-    <div class="row">
-      <button id="placeOrderBtn" class="primaryBtn">Place order</button>
-      <button id="checkoutCancel" class="ghostBtn">Cancel</button>
+  <!-- LOGIN / SIGNUP MODAL -->
+  <div id="loginBackdrop" class="backdrop hidden"></div>
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <h2 id="authTitle">Log in</h2>
+      <button id="authCloseBtn" class="ghostBtn">Close</button>
     </div>
 
-    <div class="tiny muted">When we add Stripe, this will redirect to a real payment page.</div>
+    <div class="modalBody">
+      <label class="field">
+        <span>Email</span>
+        <input id="authEmail" type="email" placeholder="you@example.com" />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input id="authPass" type="password" placeholder="Password" />
+      </label>
+
+      <div class="row gap">
+        <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
+        <button id="authSwitchBtn" class="ghostBtn" type="button">Sign up</button>
+      </div>
+
+      <p id="authError" class="tiny muted" style="margin-top:10px;"></p>
+      <p class="tiny muted" style="margin-top:10px;">
+        Tip: After you sign up once, you can log in from any device.
+      </p>
+    </div>
   </div>
 
   <script type="module" src="app.js"></script>
-
 </body>
 </html>
