@@ -1,7 +1,7 @@
 // app.js
 console.log("✅ app.js loaded");
 
-// ✅ Use CDN imports ONLY (GitHub Pages)
+// ✅ Firebase CDN imports (GitHub Pages)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
   getAuth,
@@ -76,24 +76,20 @@ const store = {
   }
 };
 
-// ---------- EMAIL VERIFICATION ----------
+// ---------- EMAIL VERIFICATION (ONLY FOR SIGNUP) ----------
 async function sendVerifyEmail(user) {
   await sendEmailVerification(user);
 }
 
-// ✅ Only blocks login if not verified (DOES NOT resend automatically)
-async function forceVerifyGate(user) {
+async function refreshVerified(user) {
   try { await reload(user); } catch {}
+  return !!user.emailVerified;
+}
 
-  if (!user.emailVerified) {
-    await signOut(auth);
-
-    openAuthModal();
-    mustEl("authError").textContent =
-      "You must verify your email first. Check your inbox for the verification link, then log in.";
-    return true;
-  }
-  return false;
+function showVerifyMessage() {
+  openAuthModal();
+  mustEl("authError").textContent =
+    "Please verify your email (check inbox), then refresh/reopen the site to unlock checkout/admin.";
 }
 
 // ---------- STATE ----------
@@ -101,7 +97,8 @@ const state = {
   products: Array.isArray(store.get("products", [])) ? store.get("products", []) : [],
   cart: Array.isArray(store.get("cart", [])) ? store.get("cart", []) : [],
   selectedId: null,
-  user: null
+  user: null,
+  verified: false
 };
 
 function save() {
@@ -127,10 +124,19 @@ function showPage(page) {
   renderAll();
 }
 
+// ✅ IMPORTANT: nav handler is async so we can check verified
 document.querySelectorAll(".navItem").forEach(btn => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
-    if (page === "admin" && !isAdmin()) return;
+
+    if (page === "admin") {
+      if (!isAdmin()) return;
+
+      const ok = await refreshVerified(state.user);
+      state.verified = ok;
+      if (!ok) { showVerifyMessage(); return; }
+    }
+
     showPage(page);
   });
 });
@@ -188,23 +194,12 @@ async function doAuthPrimary() {
       // ✅ send verification ONLY on signup
       await sendVerifyEmail(cred.user);
 
-      // ✅ force them out until verified
-      await signOut(auth);
-
-      // show message, switch back to login
-      openAuthModal();
-      mustEl("authError").textContent =
-        "Account created! Check your email for the verification link, click it, then log in.";
-      authMode = "login";
-      syncAuthUI();
+      // ✅ (Optional) keep them logged in, but tell them to verify
+      closeAuthModal();
+      alert("Account created! Check your email for the verification link. You can log in now, but checkout/admin are locked until you verify.");
       return;
     } else {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-
-      // ✅ block if not verified (no resending)
-      const blocked = await forceVerifyGate(cred.user);
-      if (blocked) return;
-
+      await signInWithEmailAndPassword(auth, email, pass);
       closeAuthModal();
     }
   } catch (err) {
@@ -226,22 +221,20 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
+// ---------- AUTH STATE ----------
 onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
-
-  // ✅ if user is logged in but not verified, kick them out
-  if (user) {
-    const blocked = await forceVerifyGate(user);
-    if (blocked) return;
-  }
+  state.verified = user ? await refreshVerified(user) : false;
 
   mustEl("loginBtn")?.classList.toggle("hidden", !!user);
   mustEl("logoutBtn")?.classList.toggle("hidden", !user);
   mustEl("userEmail").textContent = user ? user.email : "Guest";
   mustEl("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
 
+  // ✅ Admin nav visible only if admin email
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
+  // If user is on admin page but loses access, send home
   const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
   if (adminVisible && !isAdmin()) showPage("home");
 
@@ -429,12 +422,20 @@ function renderCart() {
   mustEl("cartTotal").textContent = money(cartTotal());
 }
 
-// ---------- CHECKOUT ----------
-function openCheckout() {
+// ---------- CHECKOUT (LOCKED UNTIL VERIFIED) ----------
+async function openCheckout() {
   if (!state.user) {
     openAuthModal();
     return;
   }
+
+  const ok = await refreshVerified(state.user);
+  state.verified = ok;
+  if (!ok) {
+    showVerifyMessage();
+    return;
+  }
+
   if (state.cart.length === 0) {
     alert("Your cart is empty.");
     return;
@@ -454,9 +455,16 @@ mustEl("checkoutCancel")?.addEventListener("click", closeCheckout);
 mustEl("checkoutCancel2")?.addEventListener("click", closeCheckout);
 mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
-mustEl("placeOrderBtn")?.addEventListener("click", () => {
+mustEl("placeOrderBtn")?.addEventListener("click", async () => {
   if (!state.user) {
     openAuthModal();
+    return;
+  }
+
+  const ok = await refreshVerified(state.user);
+  state.verified = ok;
+  if (!ok) {
+    showVerifyMessage();
     return;
   }
 
@@ -485,6 +493,10 @@ mustEl("addItemBtn")?.addEventListener("click", async () => {
     alert("Admin only.");
     return;
   }
+
+  const ok = await refreshVerified(state.user);
+  state.verified = ok;
+  if (!ok) { showVerifyMessage(); return; }
 
   const name = mustEl("aName").value.trim();
   const desc = mustEl("aDesc").value.trim();
