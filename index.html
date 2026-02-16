@@ -1,61 +1,213 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>My 3D Print Shop</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My 3D Print Shop</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brandLogo">▲</div>
+        <div>
+          <div class="brandName">My 3D Shop</div>
+          <div class="brandSub">Custom printed items</div>
+        </div>
+      </div>
 
-<div class="layout">
+      <nav class="nav">
+        <button class="navItem active" data-page="home">Home</button>
+        <button class="navItem" data-page="shop">Shop</button>
+        <button id="adminTab" class="navItem hidden" data-page="admin">Admin</button>
+      </nav>
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <h2>🧩 My 3D Shop</h2>
-    <button class="nav active" onclick="showPage('home')">Home</button>
-    <button class="nav" onclick="showPage('shop')">Shop</button>
+      <div class="sidebarBottom">
+        <button id="loginBtnSidebar" class="loginBtn">Log in</button>
+        <button id="logoutBtnSidebar" class="ghostBtn hidden">Log out</button>
+        <div class="tiny muted">Green/Blue theme • ₪ ILS</div>
+      </div>
+    </aside>
 
-    <div class="loginArea">
-      <button id="loginBtn" onclick="login()">Login</button>
+    <main class="main">
+      <header class="topbar">
+        <div class="leftTop">
+          <button id="accountBtn" class="iconBtn" title="Account">
+            <span class="iconCircle">👤</span>
+            <span id="accountLabel" class="accountLabel">Guest</span>
+          </button>
+        </div>
+
+        <div class="searchWrap">
+          <input id="searchInput" placeholder="Search products..." />
+          <button id="searchClear" class="ghostBtn" title="Clear">✕</button>
+        </div>
+
+        <button id="cartBtn" class="iconBtn" title="Cart">
+          🛒 <span id="cartCount" class="pill">0</span>
+        </button>
+      </header>
+
+      <!-- HOME -->
+      <section id="page-home" class="page">
+        <div class="hero">
+          <div class="heroText">
+            <div class="heroKicker">3D Printed • Made for you</div>
+            <h1 class="heroTitle">Fresh prints, clean quality.</h1>
+            <p class="heroSub">Browse items, pick options, and order in seconds.</p>
+            <div class="heroActions">
+              <button class="primaryBtn" id="ctaShop">Shop now</button>
+              <button class="ghostBtn" id="ctaFeatured">View featured</button>
+            </div>
+          </div>
+          <div class="heroArt">
+            <div class="glowCard">
+              <div class="glowTitle">Featured drops</div>
+              <div class="glowSub">New items every week</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sectionHeader">
+          <h2>Featured</h2>
+          <p class="muted">Hand-picked items</p>
+        </div>
+        <div id="featuredGrid" class="grid"></div>
+      </section>
+
+      <!-- SHOP -->
+      <section id="page-shop" class="page hidden">
+        <div class="sectionHeader">
+          <h2>Shop</h2>
+          <p class="muted">Click an item for details • Buy now or add to cart</p>
+        </div>
+        <div id="shopGrid" class="grid amazon"></div>
+      </section>
+
+      <!-- ADMIN -->
+      <section id="page-admin" class="page hidden">
+        <div class="sectionHeader">
+          <h2>Admin</h2>
+          <p class="muted">Add / remove items (stored in your browser for now)</p>
+        </div>
+
+        <div class="adminWrap">
+          <div class="card">
+            <h3>Add item</h3>
+
+            <label class="field">
+              <span>Name</span>
+              <input id="aName" placeholder="e.g., Flexi Dragon" />
+            </label>
+
+            <label class="field">
+              <span>Description</span>
+              <input id="aDesc" placeholder="Short description..." />
+            </label>
+
+            <label class="field">
+              <span>Price (₪)</span>
+              <input id="aPrice" type="number" min="0" step="0.5" placeholder="e.g., 35" />
+            </label>
+
+            <label class="field">
+              <span>Image</span>
+              <input id="aImg" type="file" accept="image/*" />
+              <div class="tiny muted">Tip: use a square-ish photo for best look.</div>
+            </label>
+
+            <button id="addItemBtn" class="primaryBtn">Add item</button>
+          </div>
+
+          <div class="card">
+            <h3>Current items</h3>
+            <div id="adminList" class="adminList"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PRODUCT MODAL -->
+  <div id="modalBackdrop" class="backdrop hidden"></div>
+  <div id="productModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <h2 id="pTitle">Item</h2>
+      <button id="pClose" class="ghostBtn">Close</button>
+    </div>
+    <div class="productModalBody">
+      <div id="pImage" class="pImage"></div>
+      <div class="pInfo">
+        <div id="pPrice" class="pPrice">₪0</div>
+        <p id="pDesc" class="muted"></p>
+        <div class="row">
+          <button id="pBuyNow" class="primaryBtn">Buy now</button>
+          <button id="pAddCart" class="ghostBtn">Add to cart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART DRAWER -->
+  <div id="cartBackdrop" class="backdrop hidden"></div>
+  <aside id="cartDrawer" class="drawer hidden">
+    <div class="drawerHeader">
+      <h2>Your Cart</h2>
+      <button id="closeCart" class="ghostBtn">Close</button>
+    </div>
+    <div id="cartItems" class="cartItems"></div>
+    <div class="cartFooter">
+      <div class="totals">
+        <div>Total</div>
+        <div id="cartTotal" class="total">₪0.00</div>
+      </div>
+      <button id="checkoutBtn" class="primaryBtn">Checkout</button>
+      <div class="tiny muted">Payments: next step (Stripe) after we move off GitHub Pages.</div>
     </div>
   </aside>
 
-  <!-- Main -->
-  <main class="main">
+  <!-- LOGIN MODAL -->
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
+    <h2>Log in</h2>
+    <p class="muted">For now this is a simple demo login (email only).</p>
 
-    <!-- Top bar -->
-    <div class="topbar">
-      <div class="account">👤 <span id="userName">Guest</span></div>
-      <input id="search" placeholder="Search products..." oninput="renderProducts()">
-      <button onclick="openCart()">🛒 <span id="cartCount">0</span></button>
+    <label class="field">
+      <span>Email</span>
+      <input id="loginEmail" placeholder="you@email.com" />
+    </label>
+
+    <div class="row">
+      <button id="loginSubmit" class="primaryBtn">Log in</button>
+      <button id="loginCancel" class="ghostBtn">Cancel</button>
     </div>
 
-    <!-- Home Page -->
-    <section id="home">
-      <h1>Featured Prints</h1>
-      <div id="featured" class="grid"></div>
-    </section>
+    <div class="tiny muted">Admin will work only for one email (we set it in app.js).</div>
+  </div>
 
-    <!-- Shop Page -->
-    <section id="shop" class="hidden">
-      <h1>Shop</h1>
-      <div id="shopGrid" class="grid"></div>
-    </section>
+  <!-- CHECKOUT MODAL -->
+  <div id="checkoutModal" class="modal hidden" role="dialog" aria-modal="true">
+    <h2>Checkout</h2>
+    <p class="muted">Enter delivery details (payments next step).</p>
 
-  </main>
-</div>
+    <label class="field">
+      <span>Phone number</span>
+      <input id="cPhone" placeholder="e.g., 05X-XXXXXXX" />
+    </label>
 
-<!-- Cart -->
-<div id="cart" class="cart hidden">
-  <h2>Your Cart</h2>
-  <div id="cartItems"></div>
-  <h3 id="total"></h3>
-  <button onclick="checkout()">Checkout</button>
-  <button onclick="closeCart()">Close</button>
-</div>
+    <label class="field">
+      <span>Address</span>
+      <input id="cAddress" placeholder="City, street, building, apartment..." />
+    </label>
 
-<script src="app.js"></script>
+    <div class="row">
+      <button id="placeOrderBtn" class="primaryBtn">Place order</button>
+      <button id="checkoutCancel" class="ghostBtn">Cancel</button>
+    </div>
+
+    <div class="tiny muted">When we add Stripe, this will redirect to a real payment page.</div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
