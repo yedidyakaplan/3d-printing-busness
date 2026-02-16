@@ -20,7 +20,9 @@ body{
   color:var(--text);
 }
 
-.hidden{ display:none !important; }
+/* 🔥 Stronger hidden (prevents click stealing) */
+.hidden{ display:none !important; pointer-events:none !important; }
+
 .muted{ color:var(--muted); }
 .tiny{ font-size:12px; }
 .pill{
@@ -320,9 +322,7 @@ body{
   padding:12px 14px;
   border-bottom:1px solid var(--line);
 }
-.modalBody{
-  padding:14px;
-}
+.modalBody{ padding:14px; }
 
 .productModalBody{
   display:grid;

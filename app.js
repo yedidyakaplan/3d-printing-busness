@@ -10,7 +10,7 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// ✅ Your Firebase config (from console)
+// ✅ Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
   authDomain: "dprintinglogin.firebaseapp.com",
@@ -20,21 +20,29 @@ const firebaseConfig = {
   appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
 };
 
-// ✅ Initialize ONCE
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 
 // ---------- CONFIG ----------
-const ADMIN_EMAIL = "yedidyakap@gmail.com"; // your admin email
+const ADMIN_EMAIL = "yedidyakap@gmail.com";
 const CURRENCY = "ILS";
 
 // ---------- HELPERS ----------
 const el = (id) => document.getElementById(id);
-const money = (n) => new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(n || 0);
+
+function mustEl(id) {
+  const node = el(id);
+  if (!node) console.warn(`Missing element #${id}`);
+  return node;
+}
+
+const money = (n) =>
+  new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(Number(n) || 0);
+
 const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
 
 function escapeHtml(s) {
-  return String(s || "")
+  return String(s ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -86,8 +94,8 @@ function isAdmin() {
 const pages = ["home", "shop", "admin"];
 
 function showPage(page) {
-  pages.forEach(p => el(`page-${p}`).classList.add("hidden"));
-  el(`page-${page}`).classList.remove("hidden");
+  pages.forEach(p => mustEl(`page-${p}`)?.classList.add("hidden"));
+  mustEl(`page-${page}`)?.classList.remove("hidden");
 
   document.querySelectorAll(".navItem").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.page === page);
@@ -104,15 +112,16 @@ document.querySelectorAll(".navItem").forEach(btn => {
   });
 });
 
-el("ctaShop").addEventListener("click", () => showPage("shop"));
-el("ctaFeatured").addEventListener("click", () => {
-  el("featuredGrid")?.scrollIntoView({ behavior: "smooth" });
+mustEl("ctaShop")?.addEventListener("click", () => showPage("shop"));
+mustEl("ctaFeatured")?.addEventListener("click", () => {
+  mustEl("featuredGrid")?.scrollIntoView({ behavior: "smooth" });
 });
 
 // ---------- SEARCH ----------
-el("searchInput").addEventListener("input", () => renderAll());
-el("searchClear").addEventListener("click", () => {
-  el("searchInput").value = "";
+mustEl("searchInput")?.addEventListener("input", () => renderAll());
+mustEl("searchClear")?.addEventListener("click", () => {
+  const si = mustEl("searchInput");
+  if (si) si.value = "";
   renderAll();
 });
 
@@ -121,31 +130,31 @@ let authMode = "login"; // login | signup
 
 function syncAuthUI() {
   const isLogin = authMode === "login";
-  el("authTitle").textContent = isLogin ? "Log in" : "Sign up";
-  el("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
-  el("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
-  el("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
+  mustEl("authTitle").textContent = isLogin ? "Log in" : "Sign up";
+  mustEl("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
+  mustEl("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
+  mustEl("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
 }
 
 function openAuthModal() {
-  el("loginBackdrop").classList.remove("hidden");
-  el("loginModal").classList.remove("hidden");
-  el("authError").textContent = "";
+  mustEl("loginBackdrop")?.classList.remove("hidden");
+  mustEl("loginModal")?.classList.remove("hidden");
+  if (mustEl("authError")) mustEl("authError").textContent = "";
   syncAuthUI();
 }
 
 function closeAuthModal() {
-  el("loginBackdrop").classList.add("hidden");
-  el("loginModal").classList.add("hidden");
+  mustEl("loginBackdrop")?.classList.add("hidden");
+  mustEl("loginModal")?.classList.add("hidden");
 }
 
 async function doAuthPrimary() {
-  const email = el("authEmail").value.trim();
-  const pass = el("authPass").value;
-  el("authError").textContent = "";
+  const email = mustEl("authEmail").value.trim();
+  const pass = mustEl("authPass").value;
+  mustEl("authError").textContent = "";
 
   if (!email || !pass) {
-    el("authError").textContent = "Enter email + password.";
+    mustEl("authError").textContent = "Enter email + password.";
     return;
   }
 
@@ -158,32 +167,34 @@ async function doAuthPrimary() {
     closeAuthModal();
   } catch (err) {
     console.error(err);
-    el("authError").textContent = err?.message || "Auth failed";
+    mustEl("authError").textContent = err?.message || "Auth failed";
   }
 }
 
-el("loginBtn").addEventListener("click", openAuthModal);
-el("accountBtn").addEventListener("click", openAuthModal);
-el("authCloseBtn").addEventListener("click", closeAuthModal);
-el("loginBackdrop").addEventListener("click", closeAuthModal);
-el("authPrimaryBtn").addEventListener("click", doAuthPrimary);
-el("authSwitchBtn").addEventListener("click", () => {
+mustEl("loginBtn")?.addEventListener("click", openAuthModal);
+mustEl("accountBtn")?.addEventListener("click", openAuthModal);
+mustEl("authCloseBtn")?.addEventListener("click", closeAuthModal);
+mustEl("loginBackdrop")?.addEventListener("click", closeAuthModal);
+mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
+
+mustEl("authSwitchBtn")?.addEventListener("click", () => {
   authMode = authMode === "login" ? "signup" : "login";
   syncAuthUI();
 });
-el("logoutBtn").addEventListener("click", () => signOut(auth));
+
+mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
 onAuthStateChanged(auth, (user) => {
   state.user = user || null;
 
-  el("loginBtn").classList.toggle("hidden", !!user);
-  el("logoutBtn").classList.toggle("hidden", !user);
-  el("userEmail").textContent = user ? user.email : "Guest";
-  el("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
+  mustEl("loginBtn")?.classList.toggle("hidden", !!user);
+  mustEl("logoutBtn")?.classList.toggle("hidden", !user);
+  mustEl("userEmail").textContent = user ? user.email : "Guest";
+  mustEl("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
 
-  el("navAdmin").classList.toggle("hidden", !isAdmin());
+  mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
-  const adminVisible = !el("page-admin").classList.contains("hidden");
+  const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
   if (adminVisible && !isAdmin()) showPage("home");
 
   renderAll();
@@ -206,7 +217,8 @@ function productCard(p) {
 }
 
 function renderFeatured() {
-  const grid = el("featuredGrid");
+  const grid = mustEl("featuredGrid");
+  if (!grid) return;
   grid.innerHTML = "";
 
   const list = state.products.slice(0, 6);
@@ -218,10 +230,11 @@ function renderFeatured() {
 }
 
 function renderShop() {
-  const grid = el("shopGrid");
+  const grid = mustEl("shopGrid");
+  if (!grid) return;
   grid.innerHTML = "";
 
-  const q = el("searchInput").value.trim().toLowerCase();
+  const q = (mustEl("searchInput")?.value || "").trim().toLowerCase();
   const list = state.products.filter(p => {
     if (!q) return true;
     return (p.name + " " + (p.desc || "")).toLowerCase().includes(q);
@@ -241,31 +254,31 @@ function openProduct(id) {
   const p = state.products.find(x => x.id === id);
   if (!p) return;
 
-  el("pTitle").textContent = p.name;
-  el("pDesc").textContent = p.desc || "";
-  el("pPrice").textContent = money(p.price);
-  el("pImage").style.backgroundImage = `url('${p.img || ""}')`;
+  mustEl("pTitle").textContent = p.name;
+  mustEl("pDesc").textContent = p.desc || "";
+  mustEl("pPrice").textContent = money(p.price);
+  mustEl("pImage").style.backgroundImage = `url('${p.img || ""}')`;
 
-  el("modalBackdrop").classList.remove("hidden");
-  el("productModal").classList.remove("hidden");
+  mustEl("modalBackdrop")?.classList.remove("hidden");
+  mustEl("productModal")?.classList.remove("hidden");
 }
 
 function closeProduct() {
-  el("modalBackdrop").classList.add("hidden");
-  el("productModal").classList.add("hidden");
+  mustEl("modalBackdrop")?.classList.add("hidden");
+  mustEl("productModal")?.classList.add("hidden");
   state.selectedId = null;
 }
 
-el("pClose").addEventListener("click", closeProduct);
-el("modalBackdrop").addEventListener("click", closeProduct);
+mustEl("pClose")?.addEventListener("click", closeProduct);
+mustEl("modalBackdrop")?.addEventListener("click", closeProduct);
 
-el("pAddCart").addEventListener("click", () => {
+mustEl("pAddCart")?.addEventListener("click", () => {
   if (!state.selectedId) return;
   addToCart(state.selectedId, 1);
   closeProduct();
 });
 
-el("pBuyNow").addEventListener("click", () => {
+mustEl("pBuyNow")?.addEventListener("click", () => {
   if (!state.selectedId) return;
   addToCart(state.selectedId, 1);
   closeProduct();
@@ -310,31 +323,33 @@ function cartTotal() {
 }
 
 function renderCartBadge() {
-  el("cartCount").textContent = String(cartCount());
+  const cc = mustEl("cartCount");
+  if (cc) cc.textContent = String(cartCount());
 }
 
 function openCart() {
-  el("cartBackdrop").classList.remove("hidden");
-  el("cartDrawer").classList.remove("hidden");
+  mustEl("cartBackdrop")?.classList.remove("hidden");
+  mustEl("cartDrawer")?.classList.remove("hidden");
   renderCart();
 }
 
 function closeCart() {
-  el("cartBackdrop").classList.add("hidden");
-  el("cartDrawer").classList.add("hidden");
+  mustEl("cartBackdrop")?.classList.add("hidden");
+  mustEl("cartDrawer")?.classList.add("hidden");
 }
 
-el("cartBtn").addEventListener("click", openCart);
-el("closeCart").addEventListener("click", closeCart);
-el("cartBackdrop").addEventListener("click", closeCart);
+mustEl("cartBtn")?.addEventListener("click", openCart);
+mustEl("closeCart")?.addEventListener("click", closeCart);
+mustEl("cartBackdrop")?.addEventListener("click", closeCart);
 
 function renderCart() {
-  const wrap = el("cartItems");
+  const wrap = mustEl("cartItems");
+  if (!wrap) return;
   wrap.innerHTML = "";
 
   if (state.cart.length === 0) {
     wrap.innerHTML = `<div class="muted">Your cart is empty.</div>`;
-    el("cartTotal").textContent = money(0);
+    mustEl("cartTotal").textContent = money(0);
     return;
   }
 
@@ -350,9 +365,9 @@ function renderCart() {
         <div class="muted">${money(p.price)} • Qty: ${c.qty}</div>
       </div>
       <div class="right row gap">
-        <button class="smallBtn" data-action="minus">-</button>
-        <button class="smallBtn" data-action="plus">+</button>
-        <button class="smallBtn" data-action="remove">Remove</button>
+        <button class="smallBtn" type="button" data-action="minus">-</button>
+        <button class="smallBtn" type="button" data-action="plus">+</button>
+        <button class="smallBtn" type="button" data-action="remove">Remove</button>
       </div>
     `;
 
@@ -363,7 +378,7 @@ function renderCart() {
     wrap.appendChild(row);
   });
 
-  el("cartTotal").textContent = money(cartTotal());
+  mustEl("cartTotal").textContent = money(cartTotal());
 }
 
 // ---------- CHECKOUT ----------
@@ -377,27 +392,28 @@ function openCheckout() {
     return;
   }
 
-  el("checkoutBackdrop").classList.remove("hidden");
-  el("checkoutModal").classList.remove("hidden");
+  mustEl("checkoutBackdrop")?.classList.remove("hidden");
+  mustEl("checkoutModal")?.classList.remove("hidden");
 }
 
 function closeCheckout() {
-  el("checkoutBackdrop").classList.add("hidden");
-  el("checkoutModal").classList.add("hidden");
+  mustEl("checkoutBackdrop")?.classList.add("hidden");
+  mustEl("checkoutModal")?.classList.add("hidden");
 }
 
-el("checkoutBtn").addEventListener("click", openCheckout);
-el("checkoutCancel").addEventListener("click", closeCheckout);
-el("checkoutCancel2").addEventListener("click", closeCheckout);
-el("checkoutBackdrop").addEventListener("click", closeCheckout);
+mustEl("checkoutBtn")?.addEventListener("click", openCheckout);
+mustEl("checkoutCancel")?.addEventListener("click", closeCheckout);
+mustEl("checkoutCancel2")?.addEventListener("click", closeCheckout);
+mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
-el("placeOrderBtn").addEventListener("click", () => {
+mustEl("placeOrderBtn")?.addEventListener("click", () => {
   if (!state.user) {
     openAuthModal();
     return;
   }
-  const phone = el("cPhone").value.trim();
-  const addr = el("cAddress").value.trim();
+
+  const phone = mustEl("cPhone").value.trim();
+  const addr = mustEl("cAddress").value.trim();
 
   if (!phone || !addr) {
     alert("Please enter phone number and address.");
@@ -416,16 +432,16 @@ el("placeOrderBtn").addEventListener("click", () => {
 });
 
 // ---------- ADMIN ----------
-el("addItemBtn").addEventListener("click", async () => {
+mustEl("addItemBtn")?.addEventListener("click", async () => {
   if (!isAdmin()) {
     alert("Admin only.");
     return;
   }
 
-  const name = el("aName").value.trim();
-  const desc = el("aDesc").value.trim();
-  const price = Number(el("aPrice").value);
-  const file = el("aImg").files?.[0];
+  const name = mustEl("aName").value.trim();
+  const desc = mustEl("aDesc").value.trim();
+  const price = Number(mustEl("aPrice").value);
+  const file = mustEl("aImg").files?.[0];
 
   if (!name || !Number.isFinite(price)) {
     alert("Enter name + price.");
@@ -437,17 +453,18 @@ el("addItemBtn").addEventListener("click", async () => {
 
   state.products.unshift({ id: uid(), name, desc, price, img });
 
-  el("aName").value = "";
-  el("aDesc").value = "";
-  el("aPrice").value = "";
-  el("aImg").value = "";
+  mustEl("aName").value = "";
+  mustEl("aDesc").value = "";
+  mustEl("aPrice").value = "";
+  mustEl("aImg").value = "";
 
   save();
   renderAll();
 });
 
 function renderAdmin() {
-  const list = el("adminList");
+  const list = mustEl("adminList");
+  if (!list) return;
   list.innerHTML = "";
 
   if (!isAdmin()) {
@@ -469,7 +486,7 @@ function renderAdmin() {
         <div class="tiny muted">${money(p.price)}</div>
       </div>
       <div class="right">
-        <button class="smallBtn">Delete</button>
+        <button class="smallBtn" type="button">Delete</button>
       </div>
     `;
     row.querySelector("button").addEventListener("click", () => {
@@ -494,3 +511,4 @@ function renderAll() {
 
 renderAll();
 showPage("home");
+

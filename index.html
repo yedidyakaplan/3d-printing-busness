@@ -4,7 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My 3D Print Shop</title>
-  <link rel="stylesheet" href="style.css" />
+
+  <!-- IMPORTANT: path is explicit -->
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Fallback so hidden ALWAYS works even if CSS fails -->
+  <style>
+    .hidden { display: none !important; }
+  </style>
 </head>
 <body>
   <div class="layout">
@@ -18,14 +25,14 @@
       </div>
 
       <nav class="nav">
-        <button class="navItem active" data-page="home">Home</button>
-        <button class="navItem" data-page="shop">Shop</button>
-        <button id="navAdmin" class="navItem hidden" data-page="admin">Admin</button>
+        <button class="navItem active" data-page="home" type="button">Home</button>
+        <button class="navItem" data-page="shop" type="button">Shop</button>
+        <button id="navAdmin" class="navItem hidden" data-page="admin" type="button">Admin</button>
       </nav>
 
       <div class="sidebarBottom">
-        <button id="loginBtn" class="loginBtn">Log in</button>
-        <button id="logoutBtn" class="ghostBtn hidden">Log out</button>
+        <button id="loginBtn" class="loginBtn" type="button">Log in</button>
+        <button id="logoutBtn" class="ghostBtn hidden" type="button">Log out</button>
         <div class="tiny">
           <span class="muted">Signed in as: </span><span id="userEmail">Guest</span>
         </div>
@@ -36,7 +43,7 @@
     <main class="main">
       <header class="topbar">
         <div class="leftTop">
-          <button id="accountBtn" class="iconBtn" title="Account">
+          <button id="accountBtn" class="iconBtn" title="Account" type="button">
             <span class="iconCircle">👤</span>
             <span id="accountLabel" class="accountLabel">Guest</span>
           </button>
@@ -44,10 +51,10 @@
 
         <div class="searchWrap">
           <input id="searchInput" placeholder="Search products..." />
-          <button id="searchClear" class="ghostBtn" title="Clear">✕</button>
+          <button id="searchClear" class="ghostBtn" title="Clear" type="button">✕</button>
         </div>
 
-        <button id="cartBtn" class="iconBtn" title="Cart">
+        <button id="cartBtn" class="iconBtn" title="Cart" type="button">
           🛒 <span id="cartCount" class="pill">0</span>
         </button>
       </header>
@@ -60,8 +67,8 @@
             <h1 class="heroTitle">Fresh prints, clean quality.</h1>
             <p class="heroSub">Browse items, choose options, and order fast.</p>
             <div class="heroActions">
-              <button class="primaryBtn" id="ctaShop">Shop now</button>
-              <button class="ghostBtn" id="ctaFeatured">View featured</button>
+              <button class="primaryBtn" id="ctaShop" type="button">Shop now</button>
+              <button class="ghostBtn" id="ctaFeatured" type="button">View featured</button>
             </div>
           </div>
           <div class="heroArt">
@@ -120,7 +127,7 @@
               <div class="tiny muted">Tip: square-ish photo looks best.</div>
             </label>
 
-            <button id="addItemBtn" class="primaryBtn">Add item</button>
+            <button id="addItemBtn" class="primaryBtn" type="button">Add item</button>
           </div>
 
           <div class="card">
@@ -137,7 +144,7 @@
   <div id="productModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2 id="pTitle">Item</h2>
-      <button id="pClose" class="ghostBtn">Close</button>
+      <button id="pClose" class="ghostBtn" type="button">Close</button>
     </div>
     <div class="productModalBody">
       <div id="pImage" class="pImage"></div>
@@ -145,8 +152,8 @@
         <div id="pPrice" class="pPrice">₪0</div>
         <p id="pDesc" class="muted"></p>
         <div class="row gap">
-          <button id="pBuyNow" class="primaryBtn">Buy now</button>
-          <button id="pAddCart" class="ghostBtn">Add to cart</button>
+          <button id="pBuyNow" class="primaryBtn" type="button">Buy now</button>
+          <button id="pAddCart" class="ghostBtn" type="button">Add to cart</button>
         </div>
         <div class="tiny muted" style="margin-top:10px;">You must be logged in to buy.</div>
       </div>
@@ -158,7 +165,7 @@
   <aside id="cartDrawer" class="drawer hidden">
     <div class="drawerHeader">
       <h2>Your Cart</h2>
-      <button id="closeCart" class="ghostBtn">Close</button>
+      <button id="closeCart" class="ghostBtn" type="button">Close</button>
     </div>
     <div id="cartItems" class="cartItems"></div>
     <div class="cartFooter">
@@ -166,7 +173,7 @@
         <div>Total</div>
         <div id="cartTotal" class="total">₪0.00</div>
       </div>
-      <button id="checkoutBtn" class="primaryBtn">Checkout</button>
+      <button id="checkoutBtn" class="primaryBtn" type="button">Checkout</button>
       <div class="tiny muted">Payments: next step (Stripe) when you add a backend.</div>
     </div>
   </aside>
@@ -176,7 +183,7 @@
   <div id="checkoutModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2>Checkout</h2>
-      <button id="checkoutCancel" class="ghostBtn">Close</button>
+      <button id="checkoutCancel" class="ghostBtn" type="button">Close</button>
     </div>
 
     <div class="modalBody">
@@ -193,8 +200,8 @@
       </label>
 
       <div class="row gap">
-        <button id="placeOrderBtn" class="primaryBtn">Place order</button>
-        <button id="checkoutCancel2" class="ghostBtn">Cancel</button>
+        <button id="placeOrderBtn" class="primaryBtn" type="button">Place order</button>
+        <button id="checkoutCancel2" class="ghostBtn" type="button">Cancel</button>
       </div>
 
       <div class="tiny muted">Later we will connect Stripe and store orders in a database.</div>
@@ -203,11 +210,10 @@
 
   <!-- LOGIN / SIGNUP MODAL -->
   <div id="loginBackdrop" class="backdrop hidden"></div>
-
   <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2 id="authTitle">Log in</h2>
-      <button id="authCloseBtn" class="ghostBtn">Close</button>
+      <button id="authCloseBtn" class="ghostBtn" type="button">Close</button>
     </div>
 
     <label class="field">
@@ -223,7 +229,7 @@
     <p id="authError" class="tiny muted" style="margin:8px 0 0;"></p>
 
     <div class="row" style="margin-top:12px;">
-      <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
+      <button id="authPrimaryBtn" class="primaryBtn" type="button">Log in</button>
       <button id="authSwitchBtn" class="ghostBtn" type="button">Sign up</button>
     </div>
 
@@ -232,6 +238,7 @@
     </div>
   </div>
 
+  <!-- IMPORTANT: module -->
   <script type="module" src="./app.js"></script>
 </body>
 </html>
