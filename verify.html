@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Email verification</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, applyActionCode } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
+      authDomain: "dprintinglogin.firebaseapp.com",
+      projectId: "dprintinglogin",
+      storageBucket: "dprintinglogin.firebasestorage.app",
+      messagingSenderId: "285262720729",
+      appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const oobCode = params.get("oobCode");
+
+    if (oobCode) {
+      applyActionCode(auth, oobCode)
+        .then(() => {
+          document.body.innerHTML = "<h1>Email verified! 🎉</h1><p>You can now return to the shop.</p>";
+        })
+        .catch(() => {
+          document.body.innerHTML = "<h1>Verification failed ❌</h1>";
+        });
+    }
+  </script>
+</head>
+<body>
+  <h2>Verifying your email...</h2>
+</body>
+</html>
