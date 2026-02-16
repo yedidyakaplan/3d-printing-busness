@@ -1,3 +1,4 @@
+// app.js
 console.log("✅ app.js loaded");
 
 // ✅ Use CDN imports ONLY (GitHub Pages)
@@ -7,7 +8,9 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
-  signOut
+  signOut,
+  sendEmailVerification,
+  reload
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ✅ Your Firebase config
@@ -72,6 +75,28 @@ const store = {
     localStorage.setItem(key, JSON.stringify(value));
   }
 };
+
+// ---------- EMAIL VERIFICATION ----------
+async function sendVerifyEmail(user) {
+  await sendEmailVerification(user);
+}
+
+async function forceVerifyGate(user) {
+  try { await reload(user); } catch {}
+
+  if (!user.emailVerified) {
+    // Optional: re-send each time they try to log in
+    try { await sendVerifyEmail(user); } catch {}
+
+    await signOut(auth);
+
+    openAuthModal();
+    mustEl("authError").textContent =
+      "✅ We sent a verification email. Click the link in your inbox, then log in again.";
+    return true;
+  }
+  return false;
+}
 
 // ---------- STATE ----------
 const state = {
@@ -160,11 +185,25 @@ async function doAuthPrimary() {
 
   try {
     if (authMode === "signup") {
-      await createUserWithEmailAndPassword(auth, email, pass);
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+
+      await sendVerifyEmail(cred.user);
+      await signOut(auth);
+
+      openAuthModal();
+      mustEl("authError").textContent =
+        "Account created! Check your email for the verification link, click it, then log in.";
+      authMode = "login";
+      syncAuthUI();
+      return;
     } else {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+
+      const blocked = await forceVerifyGate(cred.user);
+      if (blocked) return;
+
+      closeAuthModal();
     }
-    closeAuthModal();
   } catch (err) {
     console.error(err);
     mustEl("authError").textContent = err?.message || "Auth failed";
@@ -184,8 +223,13 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
+
+  if (user) {
+    const blocked = await forceVerifyGate(user);
+    if (blocked) return;
+  }
 
   mustEl("loginBtn")?.classList.toggle("hidden", !!user);
   mustEl("logoutBtn")?.classList.toggle("hidden", !user);
