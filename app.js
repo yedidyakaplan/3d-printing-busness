@@ -1,11 +1,11 @@
 console.log("✅ app.js loaded");
 
 // ✅ Use CDN imports ONLY (GitHub Pages)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendEmailVerification,
   onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -159,11 +159,18 @@ async function doAuthPrimary() {
   }
 
   try {
-    if (authMode === "signup") {
-      await createUserWithEmailAndPassword(auth, email, pass);
-    } else {
-      await signInWithEmailAndPassword(auth, email, pass);
-    }
+   if (authMode === "signup") {
+  const cred = await createUserWithEmailAndPassword(auth, email, pass);
+
+  // 🔥 SEND CONFIRMATION EMAIL
+  await sendEmailVerification(cred.user);
+
+  alert("Account created! 📧 Check your email to verify before logging in.");
+  closeAuthModal();
+  return;
+} else {
+  await signInWithEmailAndPassword(auth, email, pass);
+}
     closeAuthModal();
   } catch (err) {
     console.error(err);
@@ -184,8 +191,15 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
-onAuthStateChanged(auth, (user) => {
-  state.user = user || null;
+onAuthStateChanged(auth, async (user) => {
+  // If logged in but not verified -> force logout, then treat as guest
+  if (user && !user.emailVerified) {
+    alert("Verify your email before logging in!");
+    await signOut(auth);
+    user = null; // continue as guest
+  }
+
+  state.user = user;
 
   mustEl("loginBtn")?.classList.toggle("hidden", !!user);
   mustEl("logoutBtn")?.classList.toggle("hidden", !user);
