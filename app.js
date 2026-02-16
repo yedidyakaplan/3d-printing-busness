@@ -1,5 +1,5 @@
 // ========= CONFIG =========
-const ADMIN_EMAIL = "you@email.com"; // <-- CHANGE THIS to your admin email
+const ADMIN_EMAIL = "yedidyakap@gmail.com"; // <-- CHANGE THIS to your admin email
 const CURRENCY = "ILS";
 
 // ========= STORAGE =========
