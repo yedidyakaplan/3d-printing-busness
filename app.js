@@ -12,7 +12,7 @@ import {
 
 // ✅ Your Firebase config (from console)
 const firebaseConfig = {
-  apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Gk5laDXzNrdr48",
+  apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
   authDomain: "dprintinglogin.firebaseapp.com",
   projectId: "dprintinglogin",
   storageBucket: "dprintinglogin.firebasestorage.app",
