@@ -1,43 +1,42 @@
-// 🔥 Firebase (Auth only)
 console.log("✅ app.js loaded");
+
+// 🔥 Firebase (Auth only) - CDN imports (GOOD for GitHub Pages)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
   getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
-  signOut
+  signOut,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
+// ✅ Your Firebase config (from Firebase Console → Project Settings → Web App → Config)
 const firebaseConfig = {
-  apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
+  apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Gk5laDXzNrdr48",
   authDomain: "dprintinglogin.firebaseapp.com",
   projectId: "dprintinglogin",
   storageBucket: "dprintinglogin.firebasestorage.app",
   messagingSenderId: "285262720729",
-  appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
+  appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8",
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 
 // ---------- CONFIG ----------
-const ADMIN_EMAIL = "yedidyakap@gmail.com"; // <-- your admin email
+const ADMIN_EMAIL = "yedidyakap@gmail.com";
 const CURRENCY = "ILS";
 
 // ---------- HELPERS ----------
 const el = (id) => document.getElementById(id);
-const money = (n) => new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(n || 0);
+const money = (n) =>
+  new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(n || 0);
 const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+
+function safeOn(id, event, fn) {
+  const node = el(id);
+  if (node) node.addEventListener(event, fn);
+}
 
 const store = {
   get(key, fallback) {
@@ -50,18 +49,17 @@ const store = {
   },
   set(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
-  }
+  },
 };
 
 // ---------- STATE ----------
 const state = {
   products: store.get("products", []),
-  cart: store.get("cart", []), // [{id, qty}]
+  cart: store.get("cart", []),
   selectedId: null,
-  user: null
+  user: null,
 };
 
-// If empty, start with nothing (you asked to remove existing items)
 if (!Array.isArray(state.products)) state.products = [];
 if (!Array.isArray(state.cart)) state.cart = [];
 
@@ -70,22 +68,25 @@ function save() {
   store.set("cart", state.cart);
 }
 
+function isAdmin() {
+  return !!state.user && state.user.email === ADMIN_EMAIL;
+}
+
 // ---------- NAV ----------
 const pages = ["home", "shop", "admin"];
 
 function showPage(page) {
-  pages.forEach(p => el(`page-${p}`).classList.add("hidden"));
-  el(`page-${page}`).classList.remove("hidden");
+  pages.forEach((p) => el(`page-${p}`)?.classList.add("hidden"));
+  el(`page-${page}`)?.classList.remove("hidden");
 
-  document.querySelectorAll(".navItem").forEach(btn => {
+  document.querySelectorAll(".navItem").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.page === page);
   });
 
-  // Re-render when switching
   renderAll();
 }
 
-document.querySelectorAll(".navItem").forEach(btn => {
+document.querySelectorAll(".navItem").forEach((btn) => {
   btn.addEventListener("click", () => {
     const page = btn.dataset.page;
     if (page === "admin" && !isAdmin()) return;
@@ -93,20 +94,26 @@ document.querySelectorAll(".navItem").forEach(btn => {
   });
 });
 
-el("ctaShop").addEventListener("click", () => showPage("shop"));
-el("ctaFeatured").addEventListener("click", () => {
-  document.getElementById("featuredGrid")?.scrollIntoView({ behavior: "smooth" });
-});
+safeOn("ctaShop", "click", () => showPage("shop"));
+safeOn("ctaFeatured", "click", () => el("featuredGrid")?.scrollIntoView({ behavior: "smooth" }));
 
 // ---------- SEARCH ----------
-el("searchInput").addEventListener("input", () => renderAll());
-el("searchClear").addEventListener("click", () => {
+safeOn("searchInput", "input", () => renderAll());
+safeOn("searchClear", "click", () => {
   el("searchInput").value = "";
   renderAll();
 });
 
-// ---------- AUTH MODAL ----------
+// ---------- AUTH (LOGIN/SIGNUP MODAL) ----------
 let authMode = "login"; // 'login' | 'signup'
+
+function syncAuthUI() {
+  const isLogin = authMode === "login";
+  el("authTitle").textContent = isLogin ? "Log in" : "Sign up";
+  el("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
+  el("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
+  el("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
+}
 
 function openAuthModal() {
   el("loginBackdrop").classList.remove("hidden");
@@ -118,13 +125,6 @@ function openAuthModal() {
 function closeAuthModal() {
   el("loginBackdrop").classList.add("hidden");
   el("loginModal").classList.add("hidden");
-}
-
-function syncAuthUI() {
-  const isLogin = authMode === "login";
-  el("authTitle").textContent = isLogin ? "Log in" : "Sign up";
-  el("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
-  el("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
 }
 
 async function doAuthPrimary() {
@@ -149,40 +149,46 @@ async function doAuthPrimary() {
   }
 }
 
-el("loginBtn").addEventListener("click", openAuthModal);
-el("authCloseBtn").addEventListener("click", closeAuthModal);
-el("loginBackdrop").addEventListener("click", closeAuthModal);
-el("authPrimaryBtn").addEventListener("click", doAuthPrimary);
-el("authSwitchBtn").addEventListener("click", () => {
+safeOn("loginBtn", "click", openAuthModal);
+safeOn("authCloseBtn", "click", closeAuthModal);
+safeOn("loginBackdrop", "click", closeAuthModal);
+safeOn("authPrimaryBtn", "click", doAuthPrimary);
+safeOn("authSwitchBtn", "click", () => {
   authMode = authMode === "login" ? "signup" : "login";
   syncAuthUI();
 });
-el("logoutBtn").addEventListener("click", () => signOut(auth));
+safeOn("logoutBtn", "click", () => signOut(auth));
 
-function isAdmin() {
-  return !!state.user && state.user.email === ADMIN_EMAIL;
-}
-
+// ✅ When auth changes, update UI + admin visibility
 onAuthStateChanged(auth, (user) => {
   state.user = user || null;
 
-  // UI
-  el("loginBtn").classList.toggle("hidden", !!user);
-  el("logoutBtn").classList.toggle("hidden", !user);
+  el("loginBtn")?.classList.toggle("hidden", !!user);
+  el("logoutBtn")?.classList.toggle("hidden", !user);
+
   el("userEmail").textContent = user ? user.email : "Guest";
   el("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
 
-  // Admin
-  el("navAdmin").classList.toggle("hidden", !isAdmin());
+  // Admin tab
+  el("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
-  // If user logged out while on admin page, kick them to home
-  const adminVisible = !el("page-admin").classList.contains("hidden");
+  // If you were on admin and you lost admin, go home
+  const adminVisible = el("page-admin") && !el("page-admin").classList.contains("hidden");
   if (adminVisible && !isAdmin()) showPage("home");
 
   renderAll();
 });
 
 // ---------- PRODUCT RENDER ----------
+function escapeHtml(s) {
+  return String(s || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function productCard(p) {
   const div = document.createElement("div");
   div.className = "itemCard";
@@ -208,7 +214,7 @@ function renderFeatured() {
     return;
   }
 
-  list.forEach(p => grid.appendChild(productCard(p)));
+  list.forEach((p) => grid.appendChild(productCard(p)));
 }
 
 function renderShop() {
@@ -216,7 +222,7 @@ function renderShop() {
   grid.innerHTML = "";
 
   const q = el("searchInput").value.trim().toLowerCase();
-  const list = state.products.filter(p => {
+  const list = state.products.filter((p) => {
     if (!q) return true;
     const hay = (p.name + " " + (p.desc || "")).toLowerCase();
     return hay.includes(q);
@@ -227,13 +233,13 @@ function renderShop() {
     return;
   }
 
-  list.forEach(p => grid.appendChild(productCard(p)));
+  list.forEach((p) => grid.appendChild(productCard(p)));
 }
 
 // ---------- PRODUCT MODAL ----------
 function openProduct(id) {
   state.selectedId = id;
-  const p = state.products.find(x => x.id === id);
+  const p = state.products.find((x) => x.id === id);
   if (!p) return;
 
   el("pTitle").textContent = p.name;
@@ -251,41 +257,39 @@ function closeProduct() {
   state.selectedId = null;
 }
 
-el("pClose").addEventListener("click", closeProduct);
-el("modalBackdrop").addEventListener("click", closeProduct);
+safeOn("pClose", "click", closeProduct);
+safeOn("modalBackdrop", "click", closeProduct);
 
-el("pAddCart").addEventListener("click", () => {
-  const id = state.selectedId;
-  if (!id) return;
-  addToCart(id, 1);
+safeOn("pAddCart", "click", () => {
+  if (!state.selectedId) return;
+  addToCart(state.selectedId, 1);
   closeProduct();
 });
 
-el("pBuyNow").addEventListener("click", () => {
-  const id = state.selectedId;
-  if (!id) return;
-  addToCart(id, 1);
+safeOn("pBuyNow", "click", () => {
+  if (!state.selectedId) return;
+  addToCart(state.selectedId, 1);
   closeProduct();
   openCheckout();
 });
 
 // ---------- CART ----------
 function addToCart(id, qty) {
-  const item = state.cart.find(x => x.id === id);
+  const item = state.cart.find((x) => x.id === id);
   if (item) item.qty += qty;
   else state.cart.push({ id, qty });
   save();
-  renderCartBadge();
+  renderAll();
 }
 
 function removeFromCart(id) {
-  state.cart = state.cart.filter(x => x.id !== id);
+  state.cart = state.cart.filter((x) => x.id !== id);
   save();
   renderAll();
 }
 
 function setQty(id, qty) {
-  const item = state.cart.find(x => x.id === id);
+  const item = state.cart.find((x) => x.id === id);
   if (!item) return;
   item.qty = Math.max(1, qty);
   save();
@@ -299,15 +303,11 @@ function cartCount() {
 function cartTotal() {
   let total = 0;
   for (const c of state.cart) {
-    const p = state.products.find(x => x.id === c.id);
+    const p = state.products.find((x) => x.id === c.id);
     if (!p) continue;
     total += (p.price || 0) * (c.qty || 0);
   }
   return total;
-}
-
-function renderCartBadge() {
-  el("cartCount").textContent = String(cartCount());
 }
 
 function openCart() {
@@ -321,9 +321,9 @@ function closeCart() {
   el("cartDrawer").classList.add("hidden");
 }
 
-el("cartBtn").addEventListener("click", openCart);
-el("closeCart").addEventListener("click", closeCart);
-el("cartBackdrop").addEventListener("click", closeCart);
+safeOn("cartBtn", "click", openCart);
+safeOn("closeCart", "click", closeCart);
+safeOn("cartBackdrop", "click", closeCart);
 
 function renderCart() {
   const wrap = el("cartItems");
@@ -335,8 +335,8 @@ function renderCart() {
     return;
   }
 
-  state.cart.forEach(c => {
-    const p = state.products.find(x => x.id === c.id);
+  state.cart.forEach((c) => {
+    const p = state.products.find((x) => x.id === c.id);
     if (!p) return;
 
     const row = document.createElement("div");
@@ -346,7 +346,7 @@ function renderCart() {
         <div class="name">${escapeHtml(p.name)}</div>
         <div class="muted">${money(p.price)} • Qty: ${c.qty}</div>
       </div>
-      <div class="right row">
+      <div class="right row gap">
         <button class="smallBtn" data-action="minus">-</button>
         <button class="smallBtn" data-action="plus">+</button>
         <button class="smallBtn" data-action="remove">Remove</button>
@@ -373,7 +373,6 @@ function openCheckout() {
     alert("Your cart is empty.");
     return;
   }
-
   el("checkoutBackdrop").classList.remove("hidden");
   el("checkoutModal").classList.remove("hidden");
 }
@@ -383,12 +382,12 @@ function closeCheckout() {
   el("checkoutModal").classList.add("hidden");
 }
 
-el("checkoutBtn").addEventListener("click", openCheckout);
-el("checkoutCancel").addEventListener("click", closeCheckout);
-el("checkoutCancel2").addEventListener("click", closeCheckout);
-el("checkoutBackdrop").addEventListener("click", closeCheckout);
+safeOn("checkoutBtn", "click", openCheckout);
+safeOn("checkoutCancel", "click", closeCheckout);
+safeOn("checkoutCancel2", "click", closeCheckout);
+safeOn("checkoutBackdrop", "click", closeCheckout);
 
-el("placeOrderBtn").addEventListener("click", () => {
+safeOn("placeOrderBtn", "click", () => {
   if (!state.user) {
     openAuthModal();
     return;
@@ -401,8 +400,9 @@ el("placeOrderBtn").addEventListener("click", () => {
     return;
   }
 
-  // Demo order: just confirm and clear cart
-  alert(`Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`);
+  alert(
+    `Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`
+  );
 
   state.cart = [];
   save();
@@ -412,7 +412,16 @@ el("placeOrderBtn").addEventListener("click", () => {
 });
 
 // ---------- ADMIN ----------
-el("addItemBtn").addEventListener("click", async () => {
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ""));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+safeOn("addItemBtn", "click", async () => {
   if (!isAdmin()) {
     alert("Admin only.");
     return;
@@ -431,15 +440,8 @@ el("addItemBtn").addEventListener("click", async () => {
   let img = "";
   if (file) img = await fileToDataUrl(file);
 
-  state.products.unshift({
-    id: uid(),
-    name,
-    desc,
-    price,
-    img
-  });
+  state.products.unshift({ id: uid(), name, desc, price, img });
 
-  // clear fields
   el("aName").value = "";
   el("aDesc").value = "";
   el("aPrice").value = "";
@@ -463,7 +465,7 @@ function renderAdmin() {
     return;
   }
 
-  state.products.forEach(p => {
+  state.products.forEach((p) => {
     const row = document.createElement("div");
     row.className = "adminRow";
     row.innerHTML = `
@@ -477,8 +479,8 @@ function renderAdmin() {
     `;
     row.querySelector("button").addEventListener("click", () => {
       if (!confirm(`Delete "${p.name}"?`)) return;
-      state.products = state.products.filter(x => x.id !== p.id);
-      state.cart = state.cart.filter(x => x.id !== p.id);
+      state.products = state.products.filter((x) => x.id !== p.id);
+      state.cart = state.cart.filter((x) => x.id !== p.id);
       save();
       renderAll();
     });
@@ -488,31 +490,12 @@ function renderAdmin() {
 
 // ---------- RENDER ALL ----------
 function renderAll() {
+  el("cartCount").textContent = String(cartCount());
   renderFeatured();
   renderShop();
-  renderCartBadge();
   renderCart();
   renderAdmin();
 }
 
 renderAll();
 showPage("home");
-
-// ---------- UTIL ----------
-function escapeHtml(s) {
-  return String(s || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result || ""));
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}

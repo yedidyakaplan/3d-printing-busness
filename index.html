@@ -202,33 +202,36 @@
   </div>
 
   <!-- LOGIN / SIGNUP MODAL -->
-<div id="loginBackdrop" class="backdrop hidden"></div>
+  <div id="loginBackdrop" class="backdrop hidden"></div>
 
-<div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="modalTop">
-    <h2 id="authTitle">Log in</h2>
-    <button id="authCloseBtn" class="ghostBtn">Close</button>
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <h2 id="authTitle">Log in</h2>
+      <button id="authCloseBtn" class="ghostBtn">Close</button>
+    </div>
+
+    <label class="field">
+      <span>Email</span>
+      <input id="authEmail" type="email" placeholder="you@example.com" />
+    </label>
+
+    <label class="field">
+      <span>Password</span>
+      <input id="authPass" type="password" placeholder="Password" />
+    </label>
+
+    <p id="authError" class="tiny muted" style="margin:8px 0 0;"></p>
+
+    <div class="row" style="margin-top:12px;">
+      <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
+      <button id="authSwitchBtn" class="ghostBtn" type="button">Sign up</button>
+    </div>
+
+    <div class="tiny muted" style="margin-top:10px;">
+      <span id="authSwitchText">Don’t have an account?</span>
+    </div>
   </div>
 
-  <label class="field">
-    <span>Email</span>
-    <input id="authEmail" type="email" placeholder="you@example.com" />
-  </label>
-
-  <label class="field">
-    <span>Password</span>
-    <input id="authPass" type="password" placeholder="Password" />
-  </label>
-
-  <p id="authError" class="tiny muted" style="margin:8px 0 0;"></p>
-
-  <div class="row" style="margin-top:12px;">
-    <button id="authPrimaryBtn" class="primaryBtn">Log in</button>
-    <button id="authSwitchBtn" class="ghostBtn">Sign up</button>
-  </div>
-
-  <div class="tiny muted" style="margin-top:10px;">
-    <span id="authSwitchText">Don’t have an account?</span>
-  </div>
-</div>
-<script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
