@@ -192,22 +192,29 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
 onAuthStateChanged(auth, async (user) => {
-  // If logged in but not verified -> force logout, then treat as guest
+
+  // 🚨 If logged in but NOT verified → force logout
   if (user && !user.emailVerified) {
     alert("Verify your email before logging in!");
     await signOut(auth);
-    user = null; // continue as guest
+    state.user = null;
+  } else {
+    state.user = user || null;
   }
 
-  state.user = user;
+  // Update UI
+  mustEl("loginBtn")?.classList.toggle("hidden", !!state.user);
+  mustEl("logoutBtn")?.classList.toggle("hidden", !state.user);
 
-  mustEl("loginBtn")?.classList.toggle("hidden", !!user);
-  mustEl("logoutBtn")?.classList.toggle("hidden", !user);
-  mustEl("userEmail").textContent = user ? user.email : "Guest";
-  mustEl("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
+  mustEl("userEmail").textContent =
+    state.user ? state.user.email : "Guest";
+
+  mustEl("accountLabel").textContent =
+    state.user ? state.user.email.split("@")[0] : "Guest";
 
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
+  // If user somehow on admin page but not admin → kick to home
   const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
   if (adminVisible && !isAdmin()) showPage("home");
 
