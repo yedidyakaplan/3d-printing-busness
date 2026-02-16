@@ -1,4 +1,25 @@
-// ========= CONFIG =========
+// 🔥 Firebase SDK
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC1okeekPQh7RUXWsVG0Kk5laDXzNrdr48",
+  authDomain: "dprintinglogin.firebaseapp.com",
+  projectId: "dprintinglogin",
+  storageBucket: "dprintinglogin.firebasestorage.app",
+  messagingSenderId: "285262720729",
+  appId: "1:285262720729:web:5f9c2b330bdaa30aba58c8"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
 const ADMIN_EMAIL = "yedidyakap@gmail.com"; // <-- CHANGE THIS to your admin email
 const CURRENCY = "ILS";
 
