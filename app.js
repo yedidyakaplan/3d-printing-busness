@@ -81,18 +81,16 @@ async function sendVerifyEmail(user) {
   await sendEmailVerification(user);
 }
 
+// ✅ Only blocks login if not verified (DOES NOT resend automatically)
 async function forceVerifyGate(user) {
   try { await reload(user); } catch {}
 
   if (!user.emailVerified) {
-    // Optional: re-send each time they try to log in
-    try { await sendVerifyEmail(user); } catch {}
-
     await signOut(auth);
 
     openAuthModal();
     mustEl("authError").textContent =
-      "✅ We sent a verification email. Click the link in your inbox, then log in again.";
+      "You must verify your email first. Check your inbox for the verification link, then log in.";
     return true;
   }
   return false;
@@ -187,9 +185,13 @@ async function doAuthPrimary() {
     if (authMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
+      // ✅ send verification ONLY on signup
       await sendVerifyEmail(cred.user);
+
+      // ✅ force them out until verified
       await signOut(auth);
 
+      // show message, switch back to login
       openAuthModal();
       mustEl("authError").textContent =
         "Account created! Check your email for the verification link, click it, then log in.";
@@ -199,6 +201,7 @@ async function doAuthPrimary() {
     } else {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
 
+      // ✅ block if not verified (no resending)
       const blocked = await forceVerifyGate(cred.user);
       if (blocked) return;
 
@@ -226,6 +229,7 @@ mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
 
+  // ✅ if user is logged in but not verified, kick them out
   if (user) {
     const blocked = await forceVerifyGate(user);
     if (blocked) return;
