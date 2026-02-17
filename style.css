@@ -23,9 +23,7 @@ body{
   color:var(--text);
 }
 
-/* 🔥 Stronger hidden (prevents click stealing) */
 .hidden{ display:none !important; pointer-events:none !important; }
-
 .muted{ color:var(--muted); }
 .tiny{ font-size:12px; }
 .pill{
@@ -62,15 +60,14 @@ body{
   border-radius:14px;
   background: linear-gradient(135deg, rgba(37,230,160,.25), rgba(70,183,255,.25));
   border:1px solid var(--line);
-  overflow:hidden; /* ✅ makes rounded corners clip the logo */
+  overflow:hidden;
 }
 
-/* ✅ NEW: image sizing inside the logo box */
 .brandImg{
   width: 100%;
   height: 100%;
-  object-fit: contain;   /* keeps full logo visible */
-  padding: 6px;          /* spacing inside the box */
+  object-fit: contain;
+  padding: 6px;
   display:block;
 }
 
@@ -108,7 +105,6 @@ body{
   gap:10px;
 }
 
-/* ✅ login button smaller + lower */
 #loginBtn{
   padding:8px 10px;
   font-size:13px;
@@ -149,7 +145,6 @@ body{
 }
 .accountLabel{ font-size:13px; color:var(--muted); }
 
-/* ✅ search pushed to the right next to cart */
 .searchWrap{
   display:flex;
   align-items:center;
@@ -181,9 +176,7 @@ body{
   border-color: rgba(70,183,255,.45);
 }
 .primaryBtn:hover{ filter: brightness(1.06); }
-.ghostBtn, .loginBtn{
-  background: rgba(255,255,255,.04);
-}
+.ghostBtn, .loginBtn{ background: rgba(255,255,255,.04); }
 .ghostBtn:hover, .loginBtn:hover{ background: rgba(255,255,255,.07); }
 
 .page{ margin-top:16px; }
@@ -411,6 +404,70 @@ body{
 }
 .totals{ display:flex; justify-content:space-between; }
 .total{ font-weight:900; }
+
+/* ✅ NEW: Help & Support */
+.supportWrap{ margin-top:14px; max-width: 720px; }
+.supportLine{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.12);
+  margin-bottom:10px;
+}
+.supportLabel{ font-weight:800; }
+.supportLink{
+  color: rgba(70,183,255,.92);
+  text-decoration: none;
+}
+.supportLink:hover{ text-decoration: underline; }
+
+/* ✅ NEW: Orders */
+.ordersWrap{ margin-top:14px; }
+.ordersList{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.orderCard{
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.12);
+  border-radius:14px;
+  padding:12px;
+}
+.orderTop{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:baseline;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.orderId{ font-weight:900; }
+.orderMeta{ color: var(--muted); font-size: 12px; }
+.orderItems{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:10px;
+}
+.orderItemRow{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03);
+  border-radius:12px;
+  padding:8px 10px;
+}
+.orderTotalRow{
+  display:flex;
+  justify-content:space-between;
+  margin-top:10px;
+  font-weight:900;
+}
 
 @media (max-width: 980px){
   .layout{ grid-template-columns: 1fr; }

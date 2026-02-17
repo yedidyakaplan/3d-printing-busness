@@ -18,7 +18,6 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="brandLogo">
-          <!-- ✅ REPLACED ▲ WITH YOUR IMAGE -->
           <img src="./fidgify-logo-transparent.png" alt="Figify logo" class="brandImg" />
         </div>
         <div>
@@ -30,6 +29,12 @@
       <nav class="nav">
         <button class="navItem active" data-page="home" type="button">Home</button>
         <button class="navItem" data-page="shop" type="button">Shop</button>
+
+        <!-- ✅ NEW: Help & Support (everyone can see) -->
+        <button class="navItem" data-page="help" type="button">Help & Support</button>
+
+        <!-- ✅ Admin-only tabs -->
+        <button id="navOrders" class="navItem hidden" data-page="orders" type="button">Orders</button>
         <button id="navAdmin" class="navItem hidden" data-page="admin" type="button">Admin</button>
       </nav>
 
@@ -106,6 +111,53 @@
           <p class="muted">Click an item for details • Buy now or add to cart</p>
         </div>
         <div id="shopGrid" class="grid amazon"></div>
+      </section>
+
+      <!-- ✅ NEW: HELP & SUPPORT -->
+      <section id="page-help" class="page hidden">
+        <div class="sectionHeader">
+          <h2>Help & Support</h2>
+          <p class="muted">Contact us</p>
+        </div>
+
+        <div class="supportWrap">
+          <div class="card">
+            <h3>Contact</h3>
+
+            <div class="supportLine">
+              <div class="supportLabel">Phone</div>
+              <div class="supportValue">
+                <a class="supportLink" href="tel:+972587940344">+972587940344</a>
+              </div>
+            </div>
+
+            <div class="supportLine">
+              <div class="supportLabel">Email</div>
+              <div class="supportValue">
+                <a class="supportLink" href="mailto:yedidyakaplan@outlook.com">yedidyakaplan@outlook.com</a>
+              </div>
+            </div>
+
+            <div class="tiny muted" style="margin-top:10px;">
+              Usually responds within 24 hours.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ✅ NEW: ORDERS (ADMIN ONLY) -->
+      <section id="page-orders" class="page hidden">
+        <div class="sectionHeader">
+          <h2>Orders</h2>
+          <p class="muted">Admin only • View all placed orders</p>
+        </div>
+
+        <div class="ordersWrap">
+          <div class="card">
+            <h3>All Orders</h3>
+            <div id="ordersList" class="ordersList"></div>
+          </div>
+        </div>
       </section>
 
       <!-- ADMIN -->

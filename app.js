@@ -44,6 +44,7 @@ const money = (n) =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(Number(n) || 0);
 
 const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+const orderId = () => "o_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -95,6 +96,7 @@ function showVerifyBlocked(reason = "this feature") {
 const state = {
   products: Array.isArray(store.get("products", [])) ? store.get("products", []) : [],
   cart: Array.isArray(store.get("cart", [])) ? store.get("cart", []) : [],
+  orders: Array.isArray(store.get("orders", [])) ? store.get("orders", []) : [], // ✅ NEW
   selectedId: null,
   user: null,
   verified: false
@@ -103,6 +105,7 @@ const state = {
 function save() {
   store.set("products", state.products);
   store.set("cart", state.cart);
+  store.set("orders", state.orders); // ✅ NEW
 }
 
 function isAdmin() {
@@ -170,7 +173,7 @@ async function handleEmailActionLink() {
 handleEmailActionLink();
 
 // ---------- NAV ----------
-const pages = ["home", "shop", "admin"];
+const pages = ["home", "shop", "help", "orders", "admin"]; // ✅ NEW pages
 
 function showPage(page) {
   pages.forEach(p => mustEl(`page-${p}`)?.classList.add("hidden"));
@@ -187,13 +190,14 @@ document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
 
-    if (page === "admin") {
+    // ✅ Admin-only pages protection
+    if (page === "admin" || page === "orders") {
       if (!isAdmin()) return;
 
       const ok = await refreshVerified(state.user);
       state.verified = ok;
       if (!ok) {
-        showVerifyBlocked("Admin");
+        showVerifyBlocked(page === "admin" ? "Admin" : "Orders");
         return;
       }
     }
@@ -298,10 +302,13 @@ onAuthStateChanged(auth, async (user) => {
   mustEl("userEmail").textContent = state.user ? state.user.email : "Guest";
   mustEl("accountLabel").textContent = state.user ? state.user.email.split("@")[0] : "Guest";
 
+  // ✅ Admin-only tabs
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
+  mustEl("navOrders")?.classList.toggle("hidden", !isAdmin());
 
   const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
-  if (adminVisible && !isAdmin()) showPage("home");
+  const ordersVisible = !mustEl("page-orders")?.classList.contains("hidden");
+  if ((adminVisible || ordersVisible) && !isAdmin()) showPage("home");
 
   renderAll();
 });
@@ -520,6 +527,22 @@ mustEl("checkoutCancel")?.addEventListener("click", closeCheckout);
 mustEl("checkoutCancel2")?.addEventListener("click", closeCheckout);
 mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
+// ✅ NEW: build an order snapshot from cart
+function buildOrderItemsSnapshot() {
+  const items = [];
+  for (const c of state.cart) {
+    const p = state.products.find(x => x.id === c.id);
+    if (!p) continue;
+    items.push({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price) || 0,
+      qty: Number(c.qty) || 1
+    });
+  }
+  return items;
+}
+
 mustEl("placeOrderBtn")?.addEventListener("click", async () => {
   if (!state.user) {
     openAuthModal("login");
@@ -541,7 +564,30 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
     return;
   }
 
-  alert(`Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`);
+  const itemsSnapshot = buildOrderItemsSnapshot();
+  if (itemsSnapshot.length === 0) {
+    alert("Your cart is empty.");
+    return;
+  }
+
+  const total = itemsSnapshot.reduce((sum, it) => sum + (it.price * it.qty), 0);
+
+  // ✅ NEW: save order
+  const o = {
+    id: orderId(),
+    createdAt: new Date().toISOString(),
+    email: state.user.email,
+    phone,
+    address: addr,
+    items: itemsSnapshot,
+    total
+  };
+  state.orders.unshift(o);
+  save();
+
+  alert(
+    `Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(total)}`
+  );
 
   state.cart = [];
   save();
@@ -626,6 +672,72 @@ function renderAdmin() {
   });
 }
 
+// ✅ NEW: render orders (admin only)
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
+function renderOrders() {
+  const wrap = mustEl("ordersList");
+  if (!wrap) return;
+
+  if (!isAdmin()) {
+    wrap.innerHTML = `<div class="muted">Admin only.</div>`;
+    return;
+  }
+
+  if (state.orders.length === 0) {
+    wrap.innerHTML = `<div class="muted">No orders yet.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = "";
+
+  for (const o of state.orders) {
+    const card = document.createElement("div");
+    card.className = "orderCard";
+
+    const itemsHtml = (o.items || []).map(it => {
+      const lineTotal = (Number(it.price) || 0) * (Number(it.qty) || 1);
+      return `
+        <div class="orderItemRow">
+          <div>
+            <div style="font-weight:800;">${escapeHtml(it.name)}</div>
+            <div class="tiny muted">${money(it.price)} • Qty: ${escapeHtml(it.qty)}</div>
+          </div>
+          <div style="font-weight:900;">${money(lineTotal)}</div>
+        </div>
+      `;
+    }).join("");
+
+    card.innerHTML = `
+      <div class="orderTop">
+        <div class="orderId">Order: ${escapeHtml(o.id)}</div>
+        <div class="orderMeta">${escapeHtml(formatDate(o.createdAt))}</div>
+      </div>
+
+      <div class="tiny muted">
+        <div><b>Customer:</b> ${escapeHtml(o.email || "")}</div>
+        <div><b>Phone:</b> ${escapeHtml(o.phone || "")}</div>
+        <div><b>Address:</b> ${escapeHtml(o.address || "")}</div>
+      </div>
+
+      <div class="orderItems">${itemsHtml}</div>
+
+      <div class="orderTotalRow">
+        <div>Total</div>
+        <div>${money(o.total || 0)}</div>
+      </div>
+    `;
+
+    wrap.appendChild(card);
+  }
+}
+
 // ---------- RENDER ----------
 function renderAll() {
   renderFeatured();
@@ -633,6 +745,7 @@ function renderAll() {
   renderCartBadge();
   renderCart();
   renderAdmin();
+  renderOrders(); // ✅ NEW
 }
 
 renderAll();
