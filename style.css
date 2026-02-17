@@ -1,3 +1,4 @@
+/* style.css */
 :root{
   --bg:#071225;
   --panel:#0a1a33;
@@ -14,9 +15,11 @@
 body{
   margin:0;
   font-family: system-ui, Arial;
-  background: radial-gradient(1200px 700px at 20% 10%, rgba(70,183,255,.18), transparent 55%),
-              radial-gradient(900px 600px at 80% 30%, rgba(37,230,160,.12), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(1200px 700px at 15% 10%, rgba(70,183,255,.28), transparent 55%),
+    radial-gradient(900px 600px at 85% 30%, rgba(37,230,160,.22), transparent 55%),
+    radial-gradient(900px 700px at 50% 95%, rgba(140,90,255,.16), transparent 60%),
+    var(--bg);
   color:var(--text);
 }
 
@@ -93,13 +96,21 @@ body{
   gap:10px;
 }
 
+/* ✅ login button smaller + lower */
+#loginBtn{
+  padding:8px 10px;
+  font-size:13px;
+  margin-top:10px;
+  width: fit-content;
+}
+
 .main{ padding:18px 18px 80px; }
 
 .topbar{
   display:flex;
   align-items:center;
   gap:12px;
-  justify-content:space-between;
+  justify-content:flex-start;
   padding:12px 14px;
   border:1px solid var(--line);
   background: rgba(255,255,255,.03);
@@ -126,13 +137,15 @@ body{
 }
 .accountLabel{ font-size:13px; color:var(--muted); }
 
+/* ✅ search pushed to the right next to cart */
 .searchWrap{
   display:flex;
   align-items:center;
   gap:8px;
   flex:1;
   max-width:560px;
-  margin: 0 10px;
+  margin-left:auto;
+  margin-right:0;
 }
 .searchWrap input{
   width:100%;

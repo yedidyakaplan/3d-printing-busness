@@ -154,7 +154,6 @@ async function handleEmailActionLink() {
     console.warn("Email action link error:", e);
     alert("⚠️ This verification link is invalid or expired. Try signing up again.");
   } finally {
-    // Clean URL
     url.searchParams.delete("mode");
     url.searchParams.delete("oobCode");
     url.searchParams.delete("apiKey");
@@ -162,7 +161,6 @@ async function handleEmailActionLink() {
     url.searchParams.delete("lang");
     history.replaceState({}, "", url.pathname + url.search + url.hash);
 
-    // If somehow signed in, refresh verified state
     if (auth.currentUser) {
       state.verified = await refreshVerified(auth.currentUser);
       renderAll();
@@ -243,7 +241,6 @@ async function doAuthPrimary() {
   }
 
   try {
-    // SIGNUP: create -> send verify -> sign out
     if (authMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await sendVerifyEmail(cred.user);
@@ -257,7 +254,6 @@ async function doAuthPrimary() {
       return;
     }
 
-    // LOGIN: sign in -> reload -> if not verified, kick out
     const cred = await signInWithEmailAndPassword(auth, email, pass);
     const ok = await refreshVerified(cred.user);
 
@@ -277,13 +273,12 @@ async function doAuthPrimary() {
 
 mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
 
-// ---------- 🔒 ENFORCE VERIFIED EVEN AFTER REFRESH (CRITICAL FIX) ----------
+// ---------- 🔒 ENFORCE VERIFIED EVEN AFTER REFRESH ----------
 let enforcingKick = false;
 
 onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
 
-  // If logged in but NOT verified => instantly sign out and force modal
   if (user && !user.emailVerified) {
     if (!enforcingKick) {
       enforcingKick = true;
@@ -292,7 +287,6 @@ onAuthStateChanged(auth, async (user) => {
       setAuthError("Please verify your email first. Check your inbox, click the link, then log in.");
       enforcingKick = false;
     }
-    // keep UI as guest
     state.user = null;
     state.verified = false;
   } else {
@@ -304,10 +298,8 @@ onAuthStateChanged(auth, async (user) => {
   mustEl("userEmail").textContent = state.user ? state.user.email : "Guest";
   mustEl("accountLabel").textContent = state.user ? state.user.email.split("@")[0] : "Guest";
 
-  // Admin nav visible only if admin email (and only if signed in)
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
-  // If user is on admin page but loses access, send home
   const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
   if (adminVisible && !isAdmin()) showPage("home");
 
