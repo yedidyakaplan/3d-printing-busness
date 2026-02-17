@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My 3D Print Shop</title>
 
-  <!-- CSS -->
   <link rel="stylesheet" href="./style.css" />
 
-  <!-- Safety fallback so hidden always works -->
   <style>
-    .hidden { display:none !important; }
+    .hidden { display: none !important; }
   </style>
 </head>
 
 <body>
-
   <div class="layout">
-
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
         <div class="brandLogo">▲</div>
@@ -47,19 +42,13 @@
       </div>
     </aside>
 
-
-    <!-- MAIN CONTENT -->
     <main class="main">
-
-      <!-- TOP BAR -->
       <header class="topbar">
-
-        <button id="accountBtn" class="iconBtn" type="button">
+        <button id="accountBtn" class="iconBtn" type="button" title="Account">
           <span class="iconCircle">👤</span>
-          <span id="accountLabel">Guest</span>
+          <span id="accountLabel" class="accountLabel">Guest</span>
         </button>
 
-        <!-- 🔴 FIXED SEARCH INPUT (no email autofill anymore) -->
         <div class="searchWrap">
           <input
             id="searchInput"
@@ -70,27 +59,24 @@
             autocapitalize="off"
             spellcheck="false"
           />
-          <button id="searchClear" class="ghostBtn" type="button">✕</button>
+          <button id="searchClear" class="ghostBtn" title="Clear" type="button">✕</button>
         </div>
 
-        <button id="cartBtn" class="iconBtn" type="button">
+        <button id="cartBtn" class="iconBtn" title="Cart" type="button">
           🛒 <span id="cartCount" class="pill">0</span>
         </button>
-
       </header>
 
-
-      <!-- HOME PAGE -->
+      <!-- HOME -->
       <section id="page-home" class="page">
         <div class="hero">
           <div class="heroText">
             <div class="heroKicker">3D Printed • Made for you</div>
             <h1 class="heroTitle">Fresh prints, clean quality.</h1>
             <p class="heroSub">Browse items, choose options, and order fast.</p>
-
             <div class="heroActions">
-              <button id="ctaShop" class="primaryBtn" type="button">Shop now</button>
-              <button id="ctaFeatured" class="ghostBtn" type="button">View featured</button>
+              <button class="primaryBtn" id="ctaShop" type="button">Shop now</button>
+              <button class="ghostBtn" id="ctaFeatured" type="button">View featured</button>
             </div>
           </div>
 
@@ -106,52 +92,48 @@
           <h2>Featured</h2>
           <p class="muted">Hand-picked items</p>
         </div>
-
         <div id="featuredGrid" class="grid"></div>
       </section>
 
-
-      <!-- SHOP PAGE -->
+      <!-- SHOP -->
       <section id="page-shop" class="page hidden">
         <div class="sectionHeader">
           <h2>Shop</h2>
           <p class="muted">Click an item for details • Buy now or add to cart</p>
         </div>
-
         <div id="shopGrid" class="grid amazon"></div>
       </section>
 
-
-      <!-- ADMIN PAGE -->
+      <!-- ADMIN -->
       <section id="page-admin" class="page hidden">
         <div class="sectionHeader">
           <h2>Admin</h2>
-          <p class="muted">Only visible when logged in as admin</p>
+          <p class="muted">Admin email + verified required</p>
         </div>
 
         <div class="adminWrap">
-
           <div class="card">
             <h3>Add product</h3>
 
             <label class="field">
               <span>Name</span>
-              <input id="aName" placeholder="Flexi Dragon">
+              <input id="aName" placeholder="e.g., Flexi Dragon" />
             </label>
 
             <label class="field">
               <span>Description</span>
-              <input id="aDesc" placeholder="Short description">
+              <input id="aDesc" placeholder="Short description..." />
             </label>
 
             <label class="field">
-              <span>Price ₪</span>
-              <input id="aPrice" type="number" min="0" step="0.5">
+              <span>Price (₪)</span>
+              <input id="aPrice" type="number" min="0" step="0.5" placeholder="e.g., 35" />
             </label>
 
             <label class="field">
               <span>Image</span>
-              <input id="aImg" type="file" accept="image/*">
+              <input id="aImg" type="file" accept="image/*" />
+              <div class="tiny muted">Tip: square-ish photo looks best.</div>
             </label>
 
             <button id="addItemBtn" class="primaryBtn" type="button">Add item</button>
@@ -159,30 +141,25 @@
 
           <div class="card">
             <h3>Products</h3>
-            <div id="adminList"></div>
+            <div id="adminList" class="adminList"></div>
           </div>
-
         </div>
       </section>
-
     </main>
   </div>
 
-
   <!-- PRODUCT MODAL -->
   <div id="modalBackdrop" class="backdrop hidden"></div>
-  <div id="productModal" class="modal hidden">
+  <div id="productModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2 id="pTitle">Item</h2>
       <button id="pClose" class="ghostBtn" type="button">Close</button>
     </div>
-
     <div class="productModalBody">
       <div id="pImage" class="pImage"></div>
       <div class="pInfo">
         <div id="pPrice" class="pPrice">₪0</div>
         <p id="pDesc" class="muted"></p>
-
         <div class="row gap">
           <button id="pBuyNow" class="primaryBtn" type="button">Buy now</button>
           <button id="pAddCart" class="ghostBtn" type="button">Add to cart</button>
@@ -191,56 +168,54 @@
     </div>
   </div>
 
-
-  <!-- CART -->
+  <!-- CART DRAWER -->
   <div id="cartBackdrop" class="backdrop hidden"></div>
   <aside id="cartDrawer" class="drawer hidden">
     <div class="drawerHeader">
       <h2>Your Cart</h2>
       <button id="closeCart" class="ghostBtn" type="button">Close</button>
     </div>
-
-    <div id="cartItems"></div>
-
+    <div id="cartItems" class="cartItems"></div>
     <div class="cartFooter">
       <div class="totals">
         <div>Total</div>
-        <div id="cartTotal" class="total">₪0</div>
+        <div id="cartTotal" class="total">₪0.00</div>
       </div>
-
       <button id="checkoutBtn" class="primaryBtn" type="button">Checkout</button>
     </div>
   </aside>
 
-
-  <!-- CHECKOUT -->
+  <!-- CHECKOUT MODAL -->
   <div id="checkoutBackdrop" class="backdrop hidden"></div>
-  <div id="checkoutModal" class="modal hidden">
+  <div id="checkoutModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2>Checkout</h2>
       <button id="checkoutCancel" class="ghostBtn" type="button">Close</button>
     </div>
 
-    <label class="field">
-      <span>Phone</span>
-      <input id="cPhone">
-    </label>
+    <div class="modalBody">
+      <p class="muted">Enter delivery details (payments later).</p>
 
-    <label class="field">
-      <span>Address</span>
-      <input id="cAddress">
-    </label>
+      <label class="field">
+        <span>Phone number</span>
+        <input id="cPhone" placeholder="e.g., 05X-XXXXXXX" />
+      </label>
 
-    <div class="row gap">
-      <button id="placeOrderBtn" class="primaryBtn" type="button">Place order</button>
-      <button id="checkoutCancel2" class="ghostBtn" type="button">Cancel</button>
+      <label class="field">
+        <span>Address</span>
+        <input id="cAddress" placeholder="City, street, building, apartment..." />
+      </label>
+
+      <div class="row gap">
+        <button id="placeOrderBtn" class="primaryBtn" type="button">Place order</button>
+        <button id="checkoutCancel2" class="ghostBtn" type="button">Cancel</button>
+      </div>
     </div>
   </div>
 
-
-  <!-- LOGIN / SIGNUP -->
+  <!-- LOGIN / SIGNUP MODAL -->
   <div id="loginBackdrop" class="backdrop hidden"></div>
-  <div id="loginModal" class="modal hidden">
+  <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modalTop">
       <h2 id="authTitle">Log in</h2>
       <button id="authCloseBtn" class="ghostBtn" type="button">Close</button>
@@ -248,28 +223,26 @@
 
     <label class="field">
       <span>Email</span>
-      <input id="authEmail" type="email">
+      <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" />
     </label>
 
     <label class="field">
       <span>Password</span>
-      <input id="authPass" type="password">
+      <input id="authPass" type="password" placeholder="Password" autocomplete="current-password" />
     </label>
 
-    <p id="authError" class="tiny muted"></p>
+    <p id="authError" class="tiny muted" style="margin:8px 0 0;"></p>
 
-    <div class="row">
+    <div class="row" style="margin-top:12px;">
       <button id="authPrimaryBtn" class="primaryBtn" type="button">Log in</button>
       <button id="authSwitchBtn" class="ghostBtn" type="button">Sign up</button>
     </div>
 
-    <div class="tiny muted">
+    <div class="tiny muted" style="margin-top:10px;">
       <span id="authSwitchText">Don’t have an account?</span>
     </div>
   </div>
 
-  <!-- APP SCRIPT -->
   <script type="module" src="./app.js"></script>
-
 </body>
 </html>

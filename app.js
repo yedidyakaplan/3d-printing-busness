@@ -87,9 +87,8 @@ async function refreshVerified(user) {
   return !!user.emailVerified;
 }
 
-// Show a simple message only when trying locked features
-function showVerifyBlocked(reason = "checkout/admin") {
-  alert(`Please verify your email to use ${reason}. Check your inbox, then refresh the site.`);
+function showVerifyBlocked(reason = "this feature") {
+  alert(`Please verify your email to use ${reason}. Check your inbox and click the verification link.`);
 }
 
 // ---------- STATE ----------
@@ -110,26 +109,24 @@ function isAdmin() {
   return !!state.user && state.user.email === ADMIN_EMAIL;
 }
 
-// ---------- HANDLE FIREBASE EMAIL LINKS (mode + oobCode) ----------
+// ---------- HANDLE VERIFICATION LINK (oobCode) ----------
 async function handleEmailActionLink() {
   const url = new URL(location.href);
   const mode = url.searchParams.get("mode");
   const oobCode = url.searchParams.get("oobCode");
 
-  // If it's not an email action link, do nothing
   if (!mode || !oobCode) return;
 
   try {
-    // We accept both "verifyEmail" (default) and "action" (some templates show this)
     if (mode === "verifyEmail" || mode === "action") {
       await applyActionCode(auth, oobCode);
-      alert("✅ Email verified! You can now use checkout/admin.");
+      alert("✅ Email verified! Now you can log in.");
     }
   } catch (e) {
     console.warn("Email action link error:", e);
-    alert("⚠️ This email link is invalid or expired. Try resending verification.");
+    alert("⚠️ This verification link is invalid or expired. Try signing up again or resend verification.");
   } finally {
-    // Clean the URL so it doesn't stay in the address bar
+    // Clean URL
     url.searchParams.delete("mode");
     url.searchParams.delete("oobCode");
     url.searchParams.delete("apiKey");
@@ -137,15 +134,13 @@ async function handleEmailActionLink() {
     url.searchParams.delete("lang");
     history.replaceState({}, "", url.pathname + url.search + url.hash);
 
-    // If user is logged in, refresh verification state
+    // If user is logged in (rare), refresh state
     if (auth.currentUser) {
       state.verified = await refreshVerified(auth.currentUser);
       renderAll();
     }
   }
 }
-
-// Run once on load
 handleEmailActionLink();
 
 // ---------- NAV ----------
@@ -166,7 +161,7 @@ document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
 
-    // Only block admin page (and only if admin)
+    // Admin page: admin + verified only
     if (page === "admin") {
       if (!isAdmin()) return;
 
@@ -207,7 +202,7 @@ function syncAuthUI() {
 }
 
 function openAuthModal(mode = "login") {
-  authMode = mode;                 // ✅ ALWAYS set mode when opening
+  authMode = mode;
   syncAuthUI();
 
   mustEl("loginBackdrop")?.classList.remove("hidden");
@@ -220,6 +215,9 @@ function closeAuthModal() {
   mustEl("loginModal")?.classList.add("hidden");
 }
 
+// ✅ THIS IS THE IMPORTANT PART:
+// - signup: send verification + sign out
+// - login: allow ONLY if verified, otherwise sign out and show error
 async function doAuthPrimary() {
   const email = mustEl("authEmail").value.trim();
   const pass = mustEl("authPass").value;
@@ -234,24 +232,35 @@ async function doAuthPrimary() {
     if (authMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-      // ✅ send verification ONLY on signup
+      // Send verification link
       await sendVerifyEmail(cred.user);
 
-      // ✅ IMPORTANT: Do NOT keep them logged in after signup
+      // Force sign out so they cannot be "logged in" until verified
       await signOut(auth);
 
       closeAuthModal();
 
-      // Reset to login mode
+      // Switch UI back to login
       authMode = "login";
       syncAuthUI();
 
-      alert("✅ Account created! Check your email for the verification link. After verifying, log in.");
+      alert("✅ Account created! We sent a verification email. Verify first, then log in.");
       return;
     }
 
-    // ✅ login should NOT send verification email
-    await signInWithEmailAndPassword(auth, email, pass);
+    // LOGIN
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+
+    // Force refresh and check verification
+    const ok = await refreshVerified(cred.user);
+    if (!ok) {
+      // Kick them out
+      await signOut(auth);
+      mustEl("authError").textContent =
+        "Please verify your email first. Check your inbox, click the link, then log in.";
+      return;
+    }
+
     closeAuthModal();
   } catch (err) {
     console.error(err);
@@ -606,7 +615,7 @@ function renderAdmin() {
     row.querySelector("button").addEventListener("click", () => {
       if (!confirm(`Delete "${p.name}"?`)) return;
       state.products = state.products.filter(x => x.id !== p.id);
-      state.cart = state.cart.filter(x => x.id !== id);
+      state.cart = state.cart.filter(x => x.id !== p.id);
       save();
       renderAll();
     });
