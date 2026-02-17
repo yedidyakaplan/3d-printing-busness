@@ -405,7 +405,7 @@ body{
 .totals{ display:flex; justify-content:space-between; }
 .total{ font-weight:900; }
 
-/* ✅ Help */
+/* Help */
 .supportWrap{ margin-top:14px; max-width: 720px; }
 .supportLine{
   display:flex;
@@ -424,7 +424,7 @@ body{
 }
 .supportLink:hover{ text-decoration: underline; }
 
-/* ✅ Orders */
+/* Orders */
 .ordersWrap{ margin-top:14px; }
 .ordersList{
   display:flex;

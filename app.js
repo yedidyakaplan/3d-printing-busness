@@ -14,11 +14,13 @@ import {
   applyActionCode
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// ✅ NEW: Firestore imports
+// ✅ Firestore
 import {
   getFirestore,
   collection,
   addDoc,
+  deleteDoc,
+  doc,
   query,
   where,
   orderBy,
@@ -38,7 +40,7 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const db = getFirestore(fbApp); // ✅ NEW
+const db = getFirestore(fbApp);
 
 // ---------- CONFIG ----------
 const ADMIN_EMAIL = "yedidyakap@gmail.com";
@@ -55,8 +57,6 @@ function mustEl(id) {
 
 const money = (n) =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(Number(n) || 0);
-
-const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -106,19 +106,20 @@ function showVerifyBlocked(reason = "this feature") {
 
 // ---------- STATE ----------
 const state = {
-  products: Array.isArray(store.get("products", [])) ? store.get("products", []) : [],
+  // ✅ Products now come from Firestore (shared for everyone)
+  products: [],
+  // Cart stays local per device (fine)
   cart: Array.isArray(store.get("cart", [])) ? store.get("cart", []) : [],
   selectedId: null,
   user: null,
   verified: false,
 
-  // ✅ NEW: orders loaded from Firestore
-  ordersAll: [],     // admin
-  ordersMine: []     // customer
+  // Orders from Firestore
+  ordersAll: [],
+  ordersMine: []
 };
 
-function save() {
-  store.set("products", state.products);
+function saveCart() {
   store.set("cart", state.cart);
 }
 
@@ -128,12 +129,15 @@ function isAdmin() {
 
 function formatDateAny(v) {
   try {
-    // Firestore Timestamp -> toDate()
-    if (v && typeof v.toDate === "function") return v.toDate().toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
-    // ISO string
-    if (typeof v === "string") return new Date(v).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
-    // JS Date
-    if (v instanceof Date) return v.toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    if (v && typeof v.toDate === "function") {
+      return v.toDate().toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    }
+    if (typeof v === "string") {
+      return new Date(v).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    }
+    if (v instanceof Date) {
+      return v.toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    }
   } catch {}
   return "Unknown date";
 }
@@ -218,7 +222,6 @@ document.querySelectorAll(".navItem").forEach(btn => {
 
     if (page === "admin" || page === "orders") {
       if (!isAdmin()) return;
-
       const ok = await refreshVerified(state.user);
       state.verified = ok;
       if (!ok) {
@@ -306,25 +309,47 @@ async function doAuthPrimary() {
     setAuthError(err?.message || "Auth failed");
   }
 }
-
 mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
 
-// ---------- 🔒 ENFORCE VERIFIED EVEN AFTER REFRESH ----------
+// ---------- LISTENERS ----------
 let enforcingKick = false;
 
-// ✅ NEW: Firestore subscriptions
+let unsubProducts = null;
 let unsubAllOrders = null;
 let unsubMyOrders = null;
 
-function stopOrderListeners() {
+function stopListeners() {
+  try { unsubProducts?.(); } catch {}
   try { unsubAllOrders?.(); } catch {}
   try { unsubMyOrders?.(); } catch {}
+  unsubProducts = null;
   unsubAllOrders = null;
   unsubMyOrders = null;
 }
 
+// ✅ Products: everyone reads the same list
+function startProductsListener() {
+  try { unsubProducts?.(); } catch {}
+  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+  unsubProducts = onSnapshot(
+    q,
+    (snap) => {
+      state.products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+    },
+    (err) => {
+      console.warn("Products snapshot error:", err);
+      state.products = [];
+      renderAll();
+    }
+  );
+}
+
 function startOrderListenersForUser(user) {
-  stopOrderListeners();
+  try { unsubAllOrders?.(); } catch {}
+  try { unsubMyOrders?.(); } catch {}
+  unsubAllOrders = null;
+  unsubMyOrders = null;
 
   if (!user) return;
 
@@ -350,11 +375,7 @@ function startOrderListenersForUser(user) {
 
   // Admin: All Orders
   if (user.email === ADMIN_EMAIL) {
-    const allQ = query(
-      collection(db, "orders"),
-      orderBy("createdAt", "desc")
-    );
-
+    const allQ = query(collection(db, "orders"), orderBy("createdAt", "desc"));
     unsubAllOrders = onSnapshot(
       allQ,
       (snap) => {
@@ -383,7 +404,7 @@ onAuthStateChanged(auth, async (user) => {
     }
     state.user = null;
     state.verified = false;
-    stopOrderListeners();
+    startOrderListenersForUser(null);
   } else {
     state.verified = !!user?.emailVerified;
     startOrderListenersForUser(user || null);
@@ -394,7 +415,6 @@ onAuthStateChanged(auth, async (user) => {
   mustEl("userEmail").textContent = state.user ? state.user.email : "Guest";
   mustEl("accountLabel").textContent = state.user ? state.user.email.split("@")[0] : "Guest";
 
-  // ✅ Tabs visibility
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
   mustEl("navOrders")?.classList.toggle("hidden", !isAdmin());
   mustEl("navMyOrders")?.classList.toggle("hidden", !state.user);
@@ -409,7 +429,10 @@ onAuthStateChanged(auth, async (user) => {
   renderAll();
 });
 
-// ---------- PRODUCTS ----------
+// Start products listener immediately (public read)
+startProductsListener();
+
+// ---------- PRODUCTS UI ----------
 function productCard(p) {
   const div = document.createElement("div");
   div.className = "itemCard";
@@ -432,7 +455,7 @@ function renderFeatured() {
 
   const list = state.products.slice(0, 6);
   if (list.length === 0) {
-    grid.innerHTML = `<div class="muted">No products yet. Log in as admin and add items.</div>`;
+    grid.innerHTML = `<div class="muted">No products yet. Admin can add items.</div>`;
     return;
   }
   list.forEach(p => grid.appendChild(productCard(p)));
@@ -499,13 +522,13 @@ function addToCart(id, qty) {
   const item = state.cart.find(x => x.id === id);
   if (item) item.qty += qty;
   else state.cart.push({ id, qty });
-  save();
+  saveCart();
   renderAll();
 }
 
 function removeFromCart(id) {
   state.cart = state.cart.filter(x => x.id !== id);
-  save();
+  saveCart();
   renderAll();
 }
 
@@ -513,7 +536,7 @@ function setQty(id, qty) {
   const item = state.cart.find(x => x.id === id);
   if (!item) return;
   item.qty = Math.max(1, qty);
-  save();
+  saveCart();
   renderAll();
 }
 
@@ -521,12 +544,16 @@ function cartCount() {
   return state.cart.reduce((a, b) => a + (b.qty || 0), 0);
 }
 
+function cartTotalFromSnapshot(items) {
+  return items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
+}
+
 function cartTotal() {
   let total = 0;
   for (const c of state.cart) {
     const p = state.products.find(x => x.id === c.id);
     if (!p) continue;
-    total += (p.price || 0) * (c.qty || 0);
+    total += (Number(p.price) || 0) * (Number(c.qty) || 0);
   }
   return total;
 }
@@ -590,7 +617,7 @@ function renderCart() {
   mustEl("cartTotal").textContent = money(cartTotal());
 }
 
-// ---------- CHECKOUT (LOCKED UNTIL VERIFIED) ----------
+// ---------- CHECKOUT ----------
 async function openCheckout() {
   if (!state.user) {
     openAuthModal("login");
@@ -623,7 +650,6 @@ mustEl("checkoutCancel")?.addEventListener("click", closeCheckout);
 mustEl("checkoutCancel2")?.addEventListener("click", closeCheckout);
 mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
-// ✅ NEW: snapshot items
 function buildOrderItemsSnapshot() {
   const items = [];
   for (const c of state.cart) {
@@ -666,9 +692,8 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
     return;
   }
 
-  const total = itemsSnapshot.reduce((sum, it) => sum + (it.price * it.qty), 0);
+  const total = cartTotalFromSnapshot(itemsSnapshot);
 
-  // ✅ NEW: Save order to Firestore (cloud)
   try {
     await addDoc(collection(db, "orders"), {
       uid: state.user.uid,
@@ -681,22 +706,20 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
     });
   } catch (e) {
     console.error("Firestore add order failed:", e);
-    alert("⚠️ Could not place order. Firestore not set up or blocked by rules.");
+    alert("⚠️ Could not place order. Firestore is blocked by rules or needs an index.");
     return;
   }
 
-  alert(
-    `Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(total)}`
-  );
+  alert(`Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(total)}`);
 
   state.cart = [];
-  save();
+  saveCart();
   renderAll();
   closeCheckout();
   closeCart();
 });
 
-// ---------- ADMIN PRODUCTS ----------
+// ---------- ADMIN: PRODUCTS ----------
 mustEl("addItemBtn")?.addEventListener("click", async () => {
   if (!isAdmin()) {
     alert("Admin only.");
@@ -723,15 +746,24 @@ mustEl("addItemBtn")?.addEventListener("click", async () => {
   let img = "";
   if (file) img = await fileToDataUrl(file);
 
-  state.products.unshift({ id: uid(), name, desc, price, img });
+  try {
+    await addDoc(collection(db, "products"), {
+      name,
+      desc,
+      price,
+      img,
+      createdAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.error("Add product failed:", e);
+    alert("⚠️ Could not add product (rules blocked). Make sure products rules are published.");
+    return;
+  }
 
   mustEl("aName").value = "";
   mustEl("aDesc").value = "";
   mustEl("aPrice").value = "";
   mustEl("aImg").value = "";
-
-  save();
-  renderAll();
 });
 
 function renderAdmin() {
@@ -761,12 +793,17 @@ function renderAdmin() {
         <button class="smallBtn" type="button">Delete</button>
       </div>
     `;
-    row.querySelector("button").addEventListener("click", () => {
+    row.querySelector("button").addEventListener("click", async () => {
       if (!confirm(`Delete "${p.name}"?`)) return;
-      state.products = state.products.filter(x => x.id !== p.id);
-      state.cart = state.cart.filter(x => x.id !== p.id);
-      save();
-      renderAll();
+      try {
+        await deleteDoc(doc(db, "products", p.id));
+        // also remove from cart locally if user had it
+        state.cart = state.cart.filter(x => x.id !== p.id);
+        saveCart();
+      } catch (e) {
+        console.error("Delete product failed:", e);
+        alert("⚠️ Could not delete product (rules blocked).");
+      }
     });
     list.appendChild(row);
   });
@@ -778,7 +815,7 @@ function renderOrderListInto(containerId, list, isAdminView, hadError = false) {
   if (!wrap) return;
 
   if (hadError) {
-    wrap.innerHTML = `<div class="muted">⚠️ Could not load orders (Firestore/rules not set up).</div>`;
+    wrap.innerHTML = `<div class="muted">⚠️ Could not load orders (rules/index issue).</div>`;
     return;
   }
 
