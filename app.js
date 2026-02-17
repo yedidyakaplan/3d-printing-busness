@@ -10,7 +10,8 @@ import {
   onAuthStateChanged,
   signOut,
   sendEmailVerification,
-  reload
+  reload,
+  applyActionCode
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ✅ Your Firebase config
@@ -76,7 +77,7 @@ const store = {
   }
 };
 
-// ---------- EMAIL VERIFICATION (ONLY FOR SIGNUP) ----------
+// ---------- EMAIL VERIFICATION ----------
 async function sendVerifyEmail(user) {
   await sendEmailVerification(user);
 }
@@ -86,11 +87,9 @@ async function refreshVerified(user) {
   return !!user.emailVerified;
 }
 
-function showVerifyMessage() {
-  // Only used when user tries checkout/admin while not verified
-  openAuthModal();
-  mustEl("authError").textContent =
-    "Please verify your email (check inbox), then refresh/reopen the site to unlock checkout/admin.";
+// Show a simple message only when trying locked features
+function showVerifyBlocked(reason = "checkout/admin") {
+  alert(`Please verify your email to use ${reason}. Check your inbox, then refresh the site.`);
 }
 
 // ---------- STATE ----------
@@ -111,6 +110,44 @@ function isAdmin() {
   return !!state.user && state.user.email === ADMIN_EMAIL;
 }
 
+// ---------- HANDLE FIREBASE EMAIL LINKS (mode + oobCode) ----------
+async function handleEmailActionLink() {
+  const url = new URL(location.href);
+  const mode = url.searchParams.get("mode");
+  const oobCode = url.searchParams.get("oobCode");
+
+  // If it's not an email action link, do nothing
+  if (!mode || !oobCode) return;
+
+  try {
+    // We accept both "verifyEmail" (default) and "action" (some templates show this)
+    if (mode === "verifyEmail" || mode === "action") {
+      await applyActionCode(auth, oobCode);
+      alert("✅ Email verified! You can now use checkout/admin.");
+    }
+  } catch (e) {
+    console.warn("Email action link error:", e);
+    alert("⚠️ This email link is invalid or expired. Try resending verification.");
+  } finally {
+    // Clean the URL so it doesn't stay in the address bar
+    url.searchParams.delete("mode");
+    url.searchParams.delete("oobCode");
+    url.searchParams.delete("apiKey");
+    url.searchParams.delete("continueUrl");
+    url.searchParams.delete("lang");
+    history.replaceState({}, "", url.pathname + url.search + url.hash);
+
+    // If user is logged in, refresh verification state
+    if (auth.currentUser) {
+      state.verified = await refreshVerified(auth.currentUser);
+      renderAll();
+    }
+  }
+}
+
+// Run once on load
+handleEmailActionLink();
+
 // ---------- NAV ----------
 const pages = ["home", "shop", "admin"];
 
@@ -125,20 +162,18 @@ function showPage(page) {
   renderAll();
 }
 
-// ✅ IMPORTANT CHANGE:
-// Do NOT block login / normal navigation with verification checks.
-// Only block admin page IF admin tries to open it and is NOT verified.
 document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
 
+    // Only block admin page (and only if admin)
     if (page === "admin") {
       if (!isAdmin()) return;
 
       const ok = await refreshVerified(state.user);
       state.verified = ok;
       if (!ok) {
-        alert("Please verify your email to access Admin.");
+        showVerifyBlocked("Admin");
         return;
       }
     }
@@ -171,11 +206,13 @@ function syncAuthUI() {
   mustEl("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
 }
 
-function openAuthModal() {
+function openAuthModal(mode = "login") {
+  authMode = mode;                 // ✅ ALWAYS set mode when opening
+  syncAuthUI();
+
   mustEl("loginBackdrop")?.classList.remove("hidden");
   mustEl("loginModal")?.classList.remove("hidden");
   if (mustEl("authError")) mustEl("authError").textContent = "";
-  syncAuthUI();
 }
 
 function closeAuthModal() {
@@ -200,23 +237,30 @@ async function doAuthPrimary() {
       // ✅ send verification ONLY on signup
       await sendVerifyEmail(cred.user);
 
-      // ✅ allow them to stay logged in, but don't block login
+      // ✅ IMPORTANT: Do NOT keep them logged in after signup
+      await signOut(auth);
+
       closeAuthModal();
-      alert("Account created! Check your email for the verification link. You can browse normally, but checkout/admin are locked until you verify.");
+
+      // Reset to login mode
+      authMode = "login";
+      syncAuthUI();
+
+      alert("✅ Account created! Check your email for the verification link. After verifying, log in.");
       return;
-    } else {
-      // ✅ login should NOT send verification email
-      await signInWithEmailAndPassword(auth, email, pass);
-      closeAuthModal();
     }
+
+    // ✅ login should NOT send verification email
+    await signInWithEmailAndPassword(auth, email, pass);
+    closeAuthModal();
   } catch (err) {
     console.error(err);
     mustEl("authError").textContent = err?.message || "Auth failed";
   }
 }
 
-mustEl("loginBtn")?.addEventListener("click", openAuthModal);
-mustEl("accountBtn")?.addEventListener("click", openAuthModal);
+mustEl("loginBtn")?.addEventListener("click", () => openAuthModal("login"));
+mustEl("accountBtn")?.addEventListener("click", () => openAuthModal("login"));
 mustEl("authCloseBtn")?.addEventListener("click", closeAuthModal);
 mustEl("loginBackdrop")?.addEventListener("click", closeAuthModal);
 mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
@@ -229,9 +273,6 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
 // ---------- AUTH STATE ----------
-// ✅ IMPORTANT CHANGE:
-// Do NOT reload here (no verify nag on login).
-// Just read the cached emailVerified flag (updates after refresh or later checks).
 onAuthStateChanged(auth, (user) => {
   state.user = user || null;
   state.verified = !!user?.emailVerified;
@@ -241,7 +282,7 @@ onAuthStateChanged(auth, (user) => {
   mustEl("userEmail").textContent = user ? user.email : "Guest";
   mustEl("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
 
-  // ✅ Admin nav visible only if admin email
+  // Admin nav visible only if admin email
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
   // If user is on admin page but loses access, send home
@@ -435,14 +476,14 @@ function renderCart() {
 // ---------- CHECKOUT (LOCKED UNTIL VERIFIED) ----------
 async function openCheckout() {
   if (!state.user) {
-    openAuthModal();
+    openAuthModal("login");
     return;
   }
 
   const ok = await refreshVerified(state.user);
   state.verified = ok;
   if (!ok) {
-    alert("Please verify your email to checkout.");
+    showVerifyBlocked("Checkout");
     return;
   }
 
@@ -467,14 +508,14 @@ mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
 mustEl("placeOrderBtn")?.addEventListener("click", async () => {
   if (!state.user) {
-    openAuthModal();
+    openAuthModal("login");
     return;
   }
 
   const ok = await refreshVerified(state.user);
   state.verified = ok;
   if (!ok) {
-    alert("Please verify your email to place an order.");
+    showVerifyBlocked("placing orders");
     return;
   }
 
@@ -507,7 +548,7 @@ mustEl("addItemBtn")?.addEventListener("click", async () => {
   const ok = await refreshVerified(state.user);
   state.verified = ok;
   if (!ok) {
-    alert("Please verify your email to use Admin.");
+    showVerifyBlocked("Admin");
     return;
   }
 
@@ -565,7 +606,7 @@ function renderAdmin() {
     row.querySelector("button").addEventListener("click", () => {
       if (!confirm(`Delete "${p.name}"?`)) return;
       state.products = state.products.filter(x => x.id !== p.id);
-      state.cart = state.cart.filter(x => x.id !== p.id);
+      state.cart = state.cart.filter(x => x.id !== id);
       save();
       renderAll();
     });
