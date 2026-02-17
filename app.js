@@ -109,7 +109,35 @@ function isAdmin() {
   return !!state.user && state.user.email === ADMIN_EMAIL;
 }
 
-// ---------- HANDLE VERIFICATION LINK (oobCode) ----------
+// ---------- AUTH MODAL ----------
+let authMode = "login"; // login | signup
+
+function syncAuthUI() {
+  const isLogin = authMode === "login";
+  mustEl("authTitle").textContent = isLogin ? "Log in" : "Sign up";
+  mustEl("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
+  mustEl("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
+  mustEl("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
+}
+
+function openAuthModal(mode = "login") {
+  authMode = mode;
+  syncAuthUI();
+  mustEl("loginBackdrop")?.classList.remove("hidden");
+  mustEl("loginModal")?.classList.remove("hidden");
+}
+
+function closeAuthModal() {
+  mustEl("loginBackdrop")?.classList.add("hidden");
+  mustEl("loginModal")?.classList.add("hidden");
+}
+
+function setAuthError(msg) {
+  const e = mustEl("authError");
+  if (e) e.textContent = msg || "";
+}
+
+// ---------- HANDLE VERIFICATION LINK ----------
 async function handleEmailActionLink() {
   const url = new URL(location.href);
   const mode = url.searchParams.get("mode");
@@ -124,7 +152,7 @@ async function handleEmailActionLink() {
     }
   } catch (e) {
     console.warn("Email action link error:", e);
-    alert("⚠️ This verification link is invalid or expired. Try signing up again or resend verification.");
+    alert("⚠️ This verification link is invalid or expired. Try signing up again.");
   } finally {
     // Clean URL
     url.searchParams.delete("mode");
@@ -134,7 +162,7 @@ async function handleEmailActionLink() {
     url.searchParams.delete("lang");
     history.replaceState({}, "", url.pathname + url.search + url.hash);
 
-    // If user is logged in (rare), refresh state
+    // If somehow signed in, refresh verified state
     if (auth.currentUser) {
       state.verified = await refreshVerified(auth.currentUser);
       renderAll();
@@ -161,7 +189,6 @@ document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
 
-    // Admin page: admin + verified only
     if (page === "admin") {
       if (!isAdmin()) return;
 
@@ -190,108 +217,94 @@ mustEl("searchClear")?.addEventListener("click", () => {
   renderAll();
 });
 
-// ---------- AUTH MODAL ----------
-let authMode = "login"; // login | signup
+// ---------- AUTH BUTTONS ----------
+mustEl("loginBtn")?.addEventListener("click", () => { setAuthError(""); openAuthModal("login"); });
+mustEl("accountBtn")?.addEventListener("click", () => { setAuthError(""); openAuthModal("login"); });
+mustEl("authCloseBtn")?.addEventListener("click", closeAuthModal);
+mustEl("loginBackdrop")?.addEventListener("click", closeAuthModal);
 
-function syncAuthUI() {
-  const isLogin = authMode === "login";
-  mustEl("authTitle").textContent = isLogin ? "Log in" : "Sign up";
-  mustEl("authPrimaryBtn").textContent = isLogin ? "Log in" : "Create account";
-  mustEl("authSwitchBtn").textContent = isLogin ? "Sign up" : "Back to login";
-  mustEl("authSwitchText").textContent = isLogin ? "Don’t have an account?" : "Already have an account?";
-}
-
-function openAuthModal(mode = "login") {
-  authMode = mode;
+mustEl("authSwitchBtn")?.addEventListener("click", () => {
+  authMode = authMode === "login" ? "signup" : "login";
+  setAuthError("");
   syncAuthUI();
+});
 
-  mustEl("loginBackdrop")?.classList.remove("hidden");
-  mustEl("loginModal")?.classList.remove("hidden");
-  if (mustEl("authError")) mustEl("authError").textContent = "";
-}
+mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
-function closeAuthModal() {
-  mustEl("loginBackdrop")?.classList.add("hidden");
-  mustEl("loginModal")?.classList.add("hidden");
-}
-
-// ✅ THIS IS THE IMPORTANT PART:
-// - signup: send verification + sign out
-// - login: allow ONLY if verified, otherwise sign out and show error
+// ---------- MAIN AUTH ACTION ----------
 async function doAuthPrimary() {
   const email = mustEl("authEmail").value.trim();
   const pass = mustEl("authPass").value;
-  mustEl("authError").textContent = "";
+  setAuthError("");
 
   if (!email || !pass) {
-    mustEl("authError").textContent = "Enter email + password.";
+    setAuthError("Enter email + password.");
     return;
   }
 
   try {
+    // SIGNUP: create -> send verify -> sign out
     if (authMode === "signup") {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
-
-      // Send verification link
       await sendVerifyEmail(cred.user);
-
-      // Force sign out so they cannot be "logged in" until verified
       await signOut(auth);
 
       closeAuthModal();
-
-      // Switch UI back to login
       authMode = "login";
       syncAuthUI();
 
-      alert("✅ Account created! We sent a verification email. Verify first, then log in.");
+      alert("✅ Account created! Verify your email first. After verifying, you can log in.");
       return;
     }
 
-    // LOGIN
+    // LOGIN: sign in -> reload -> if not verified, kick out
     const cred = await signInWithEmailAndPassword(auth, email, pass);
-
-    // Force refresh and check verification
     const ok = await refreshVerified(cred.user);
+
     if (!ok) {
-      // Kick them out
       await signOut(auth);
-      mustEl("authError").textContent =
-        "Please verify your email first. Check your inbox, click the link, then log in.";
+      openAuthModal("login");
+      setAuthError("Please verify your email first. Check your inbox, click the link, then log in.");
       return;
     }
 
     closeAuthModal();
   } catch (err) {
     console.error(err);
-    mustEl("authError").textContent = err?.message || "Auth failed";
+    setAuthError(err?.message || "Auth failed");
   }
 }
 
-mustEl("loginBtn")?.addEventListener("click", () => openAuthModal("login"));
-mustEl("accountBtn")?.addEventListener("click", () => openAuthModal("login"));
-mustEl("authCloseBtn")?.addEventListener("click", closeAuthModal);
-mustEl("loginBackdrop")?.addEventListener("click", closeAuthModal);
 mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
 
-mustEl("authSwitchBtn")?.addEventListener("click", () => {
-  authMode = authMode === "login" ? "signup" : "login";
-  syncAuthUI();
-});
+// ---------- 🔒 ENFORCE VERIFIED EVEN AFTER REFRESH (CRITICAL FIX) ----------
+let enforcingKick = false;
 
-mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
-
-// ---------- AUTH STATE ----------
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
-  state.verified = !!user?.emailVerified;
 
-  mustEl("loginBtn")?.classList.toggle("hidden", !!user);
-  mustEl("logoutBtn")?.classList.toggle("hidden", !user);
-  mustEl("userEmail").textContent = user ? user.email : "Guest";
-  mustEl("accountLabel").textContent = user ? user.email.split("@")[0] : "Guest";
+  // If logged in but NOT verified => instantly sign out and force modal
+  if (user && !user.emailVerified) {
+    if (!enforcingKick) {
+      enforcingKick = true;
+      try { await signOut(auth); } catch {}
+      openAuthModal("login");
+      setAuthError("Please verify your email first. Check your inbox, click the link, then log in.");
+      enforcingKick = false;
+    }
+    // keep UI as guest
+    state.user = null;
+    state.verified = false;
+  } else {
+    state.verified = !!user?.emailVerified;
+  }
 
-  // Admin nav visible only if admin email
+  mustEl("loginBtn")?.classList.toggle("hidden", !!state.user);
+  mustEl("logoutBtn")?.classList.toggle("hidden", !state.user);
+  mustEl("userEmail").textContent = state.user ? state.user.email : "Guest";
+  mustEl("accountLabel").textContent = state.user ? state.user.email.split("@")[0] : "Guest";
+
+  // Admin nav visible only if admin email (and only if signed in)
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
 
   // If user is on admin page but loses access, send home
@@ -536,9 +549,7 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
     return;
   }
 
-  alert(
-    `Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`
-  );
+  alert(`Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(cartTotal())}`);
 
   state.cart = [];
   save();
