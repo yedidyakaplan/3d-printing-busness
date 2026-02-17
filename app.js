@@ -87,6 +87,7 @@ async function refreshVerified(user) {
 }
 
 function showVerifyMessage() {
+  // Only used when user tries checkout/admin while not verified
   openAuthModal();
   mustEl("authError").textContent =
     "Please verify your email (check inbox), then refresh/reopen the site to unlock checkout/admin.";
@@ -124,7 +125,9 @@ function showPage(page) {
   renderAll();
 }
 
-// ✅ IMPORTANT: nav handler is async so we can check verified
+// ✅ IMPORTANT CHANGE:
+// Do NOT block login / normal navigation with verification checks.
+// Only block admin page IF admin tries to open it and is NOT verified.
 document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
@@ -134,7 +137,10 @@ document.querySelectorAll(".navItem").forEach(btn => {
 
       const ok = await refreshVerified(state.user);
       state.verified = ok;
-      if (!ok) { showVerifyMessage(); return; }
+      if (!ok) {
+        alert("Please verify your email to access Admin.");
+        return;
+      }
     }
 
     showPage(page);
@@ -194,11 +200,12 @@ async function doAuthPrimary() {
       // ✅ send verification ONLY on signup
       await sendVerifyEmail(cred.user);
 
-      // ✅ (Optional) keep them logged in, but tell them to verify
+      // ✅ allow them to stay logged in, but don't block login
       closeAuthModal();
-      alert("Account created! Check your email for the verification link. You can log in now, but checkout/admin are locked until you verify.");
+      alert("Account created! Check your email for the verification link. You can browse normally, but checkout/admin are locked until you verify.");
       return;
     } else {
+      // ✅ login should NOT send verification email
       await signInWithEmailAndPassword(auth, email, pass);
       closeAuthModal();
     }
@@ -222,9 +229,12 @@ mustEl("authSwitchBtn")?.addEventListener("click", () => {
 mustEl("logoutBtn")?.addEventListener("click", () => signOut(auth));
 
 // ---------- AUTH STATE ----------
-onAuthStateChanged(auth, async (user) => {
+// ✅ IMPORTANT CHANGE:
+// Do NOT reload here (no verify nag on login).
+// Just read the cached emailVerified flag (updates after refresh or later checks).
+onAuthStateChanged(auth, (user) => {
   state.user = user || null;
-  state.verified = user ? await refreshVerified(user) : false;
+  state.verified = !!user?.emailVerified;
 
   mustEl("loginBtn")?.classList.toggle("hidden", !!user);
   mustEl("logoutBtn")?.classList.toggle("hidden", !user);
@@ -432,7 +442,7 @@ async function openCheckout() {
   const ok = await refreshVerified(state.user);
   state.verified = ok;
   if (!ok) {
-    showVerifyMessage();
+    alert("Please verify your email to checkout.");
     return;
   }
 
@@ -464,7 +474,7 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
   const ok = await refreshVerified(state.user);
   state.verified = ok;
   if (!ok) {
-    showVerifyMessage();
+    alert("Please verify your email to place an order.");
     return;
   }
 
@@ -496,7 +506,10 @@ mustEl("addItemBtn")?.addEventListener("click", async () => {
 
   const ok = await refreshVerified(state.user);
   state.verified = ok;
-  if (!ok) { showVerifyMessage(); return; }
+  if (!ok) {
+    alert("Please verify your email to use Admin.");
+    return;
+  }
 
   const name = mustEl("aName").value.trim();
   const desc = mustEl("aDesc").value.trim();
