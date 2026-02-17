@@ -55,13 +55,25 @@ body{
   align-items:center;
   margin-bottom:18px;
 }
+
 .brandLogo{
   width:42px; height:42px;
   display:grid; place-items:center;
   border-radius:14px;
   background: linear-gradient(135deg, rgba(37,230,160,.25), rgba(70,183,255,.25));
   border:1px solid var(--line);
+  overflow:hidden; /* ✅ makes rounded corners clip the logo */
 }
+
+/* ✅ NEW: image sizing inside the logo box */
+.brandImg{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;   /* keeps full logo visible */
+  padding: 6px;          /* spacing inside the box */
+  display:block;
+}
+
 .brandName{ font-weight:800; letter-spacing:.2px; }
 .brandSub{ font-size:12px; color:var(--muted); margin-top:2px; }
 
