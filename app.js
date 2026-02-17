@@ -14,6 +14,18 @@ import {
   applyActionCode
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+// ✅ NEW: Firestore imports
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
 // ✅ Your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyCiOkeeKPQh7RUXWsVG0Kk5laDXzNrdr48",
@@ -26,6 +38,7 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
+const db = getFirestore(fbApp); // ✅ NEW
 
 // ---------- CONFIG ----------
 const ADMIN_EMAIL = "yedidyakap@gmail.com";
@@ -44,7 +57,6 @@ const money = (n) =>
   new Intl.NumberFormat("he-IL", { style: "currency", currency: CURRENCY }).format(Number(n) || 0);
 
 const uid = () => "p_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
-const orderId = () => "o_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
 
 function escapeHtml(s) {
   return String(s ?? "")
@@ -96,20 +108,34 @@ function showVerifyBlocked(reason = "this feature") {
 const state = {
   products: Array.isArray(store.get("products", [])) ? store.get("products", []) : [],
   cart: Array.isArray(store.get("cart", [])) ? store.get("cart", []) : [],
-  orders: Array.isArray(store.get("orders", [])) ? store.get("orders", []) : [], // ✅ NEW
   selectedId: null,
   user: null,
-  verified: false
+  verified: false,
+
+  // ✅ NEW: orders loaded from Firestore
+  ordersAll: [],     // admin
+  ordersMine: []     // customer
 };
 
 function save() {
   store.set("products", state.products);
   store.set("cart", state.cart);
-  store.set("orders", state.orders); // ✅ NEW
 }
 
 function isAdmin() {
   return !!state.user && state.user.email === ADMIN_EMAIL;
+}
+
+function formatDateAny(v) {
+  try {
+    // Firestore Timestamp -> toDate()
+    if (v && typeof v.toDate === "function") return v.toDate().toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    // ISO string
+    if (typeof v === "string") return new Date(v).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+    // JS Date
+    if (v instanceof Date) return v.toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
+  } catch {}
+  return "Unknown date";
 }
 
 // ---------- AUTH MODAL ----------
@@ -173,7 +199,7 @@ async function handleEmailActionLink() {
 handleEmailActionLink();
 
 // ---------- NAV ----------
-const pages = ["home", "shop", "help", "orders", "admin"]; // ✅ NEW pages
+const pages = ["home", "shop", "help", "myorders", "orders", "admin"];
 
 function showPage(page) {
   pages.forEach(p => mustEl(`page-${p}`)?.classList.add("hidden"));
@@ -190,7 +216,6 @@ document.querySelectorAll(".navItem").forEach(btn => {
   btn.addEventListener("click", async () => {
     const page = btn.dataset.page;
 
-    // ✅ Admin-only pages protection
     if (page === "admin" || page === "orders") {
       if (!isAdmin()) return;
 
@@ -198,6 +223,13 @@ document.querySelectorAll(".navItem").forEach(btn => {
       state.verified = ok;
       if (!ok) {
         showVerifyBlocked(page === "admin" ? "Admin" : "Orders");
+        return;
+      }
+    }
+
+    if (page === "myorders") {
+      if (!state.user) {
+        openAuthModal("login");
         return;
       }
     }
@@ -280,6 +312,64 @@ mustEl("authPrimaryBtn")?.addEventListener("click", doAuthPrimary);
 // ---------- 🔒 ENFORCE VERIFIED EVEN AFTER REFRESH ----------
 let enforcingKick = false;
 
+// ✅ NEW: Firestore subscriptions
+let unsubAllOrders = null;
+let unsubMyOrders = null;
+
+function stopOrderListeners() {
+  try { unsubAllOrders?.(); } catch {}
+  try { unsubMyOrders?.(); } catch {}
+  unsubAllOrders = null;
+  unsubMyOrders = null;
+}
+
+function startOrderListenersForUser(user) {
+  stopOrderListeners();
+
+  if (!user) return;
+
+  // Customer: My Orders
+  const myQ = query(
+    collection(db, "orders"),
+    where("uid", "==", user.uid),
+    orderBy("createdAt", "desc")
+  );
+
+  unsubMyOrders = onSnapshot(
+    myQ,
+    (snap) => {
+      state.ordersMine = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderMyOrders();
+    },
+    (err) => {
+      console.warn("MyOrders snapshot error:", err);
+      state.ordersMine = [];
+      renderMyOrders(true);
+    }
+  );
+
+  // Admin: All Orders
+  if (user.email === ADMIN_EMAIL) {
+    const allQ = query(
+      collection(db, "orders"),
+      orderBy("createdAt", "desc")
+    );
+
+    unsubAllOrders = onSnapshot(
+      allQ,
+      (snap) => {
+        state.ordersAll = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderOrders();
+      },
+      (err) => {
+        console.warn("Orders snapshot error:", err);
+        state.ordersAll = [];
+        renderOrders(true);
+      }
+    );
+  }
+}
+
 onAuthStateChanged(auth, async (user) => {
   state.user = user || null;
 
@@ -293,8 +383,10 @@ onAuthStateChanged(auth, async (user) => {
     }
     state.user = null;
     state.verified = false;
+    stopOrderListeners();
   } else {
     state.verified = !!user?.emailVerified;
+    startOrderListenersForUser(user || null);
   }
 
   mustEl("loginBtn")?.classList.toggle("hidden", !!state.user);
@@ -302,13 +394,17 @@ onAuthStateChanged(auth, async (user) => {
   mustEl("userEmail").textContent = state.user ? state.user.email : "Guest";
   mustEl("accountLabel").textContent = state.user ? state.user.email.split("@")[0] : "Guest";
 
-  // ✅ Admin-only tabs
+  // ✅ Tabs visibility
   mustEl("navAdmin")?.classList.toggle("hidden", !isAdmin());
   mustEl("navOrders")?.classList.toggle("hidden", !isAdmin());
+  mustEl("navMyOrders")?.classList.toggle("hidden", !state.user);
 
   const adminVisible = !mustEl("page-admin")?.classList.contains("hidden");
   const ordersVisible = !mustEl("page-orders")?.classList.contains("hidden");
   if ((adminVisible || ordersVisible) && !isAdmin()) showPage("home");
+
+  const myVisible = !mustEl("page-myorders")?.classList.contains("hidden");
+  if (myVisible && !state.user) showPage("home");
 
   renderAll();
 });
@@ -527,14 +623,14 @@ mustEl("checkoutCancel")?.addEventListener("click", closeCheckout);
 mustEl("checkoutCancel2")?.addEventListener("click", closeCheckout);
 mustEl("checkoutBackdrop")?.addEventListener("click", closeCheckout);
 
-// ✅ NEW: build an order snapshot from cart
+// ✅ NEW: snapshot items
 function buildOrderItemsSnapshot() {
   const items = [];
   for (const c of state.cart) {
     const p = state.products.find(x => x.id === c.id);
     if (!p) continue;
     items.push({
-      id: p.id,
+      productId: p.id,
       name: p.name,
       price: Number(p.price) || 0,
       qty: Number(c.qty) || 1
@@ -572,18 +668,22 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
 
   const total = itemsSnapshot.reduce((sum, it) => sum + (it.price * it.qty), 0);
 
-  // ✅ NEW: save order
-  const o = {
-    id: orderId(),
-    createdAt: new Date().toISOString(),
-    email: state.user.email,
-    phone,
-    address: addr,
-    items: itemsSnapshot,
-    total
-  };
-  state.orders.unshift(o);
-  save();
+  // ✅ NEW: Save order to Firestore (cloud)
+  try {
+    await addDoc(collection(db, "orders"), {
+      uid: state.user.uid,
+      email: state.user.email,
+      phone,
+      address: addr,
+      items: itemsSnapshot,
+      total,
+      createdAt: serverTimestamp()
+    });
+  } catch (e) {
+    console.error("Firestore add order failed:", e);
+    alert("⚠️ Could not place order. Firestore not set up or blocked by rules.");
+    return;
+  }
 
   alert(
     `Order placed!\n\nEmail: ${state.user.email}\nPhone: ${phone}\nAddress: ${addr}\nTotal: ${money(total)}`
@@ -596,7 +696,7 @@ mustEl("placeOrderBtn")?.addEventListener("click", async () => {
   closeCart();
 });
 
-// ---------- ADMIN ----------
+// ---------- ADMIN PRODUCTS ----------
 mustEl("addItemBtn")?.addEventListener("click", async () => {
   if (!isAdmin()) {
     alert("Admin only.");
@@ -672,32 +772,34 @@ function renderAdmin() {
   });
 }
 
-// ✅ NEW: render orders (admin only)
-function formatDate(iso) {
-  try {
-    return new Date(iso).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
-}
-
-function renderOrders() {
-  const wrap = mustEl("ordersList");
+// ---------- ORDERS RENDER ----------
+function renderOrderListInto(containerId, list, isAdminView, hadError = false) {
+  const wrap = mustEl(containerId);
   if (!wrap) return;
 
-  if (!isAdmin()) {
+  if (hadError) {
+    wrap.innerHTML = `<div class="muted">⚠️ Could not load orders (Firestore/rules not set up).</div>`;
+    return;
+  }
+
+  if (!state.user) {
+    wrap.innerHTML = `<div class="muted">Log in to view orders.</div>`;
+    return;
+  }
+
+  if (isAdminView && !isAdmin()) {
     wrap.innerHTML = `<div class="muted">Admin only.</div>`;
     return;
   }
 
-  if (state.orders.length === 0) {
+  if (!Array.isArray(list) || list.length === 0) {
     wrap.innerHTML = `<div class="muted">No orders yet.</div>`;
     return;
   }
 
   wrap.innerHTML = "";
 
-  for (const o of state.orders) {
+  for (const o of list) {
     const card = document.createElement("div");
     card.className = "orderCard";
 
@@ -716,15 +818,21 @@ function renderOrders() {
 
     card.innerHTML = `
       <div class="orderTop">
-        <div class="orderId">Order: ${escapeHtml(o.id)}</div>
-        <div class="orderMeta">${escapeHtml(formatDate(o.createdAt))}</div>
+        <div class="orderId">Order: ${escapeHtml(o.id || "")}</div>
+        <div class="orderMeta">${escapeHtml(formatDateAny(o.createdAt))}</div>
       </div>
 
-      <div class="tiny muted">
-        <div><b>Customer:</b> ${escapeHtml(o.email || "")}</div>
-        <div><b>Phone:</b> ${escapeHtml(o.phone || "")}</div>
-        <div><b>Address:</b> ${escapeHtml(o.address || "")}</div>
-      </div>
+      ${isAdminView ? `
+        <div class="tiny muted">
+          <div><b>Customer:</b> ${escapeHtml(o.email || "")}</div>
+          <div><b>Phone:</b> ${escapeHtml(o.phone || "")}</div>
+          <div><b>Address:</b> ${escapeHtml(o.address || "")}</div>
+        </div>
+      ` : `
+        <div class="tiny muted">
+          <div><b>Status:</b> Received</div>
+        </div>
+      `}
 
       <div class="orderItems">${itemsHtml}</div>
 
@@ -738,6 +846,14 @@ function renderOrders() {
   }
 }
 
+function renderOrders(hadError = false) {
+  renderOrderListInto("ordersList", state.ordersAll, true, hadError);
+}
+
+function renderMyOrders(hadError = false) {
+  renderOrderListInto("myOrdersList", state.ordersMine, false, hadError);
+}
+
 // ---------- RENDER ----------
 function renderAll() {
   renderFeatured();
@@ -745,7 +861,8 @@ function renderAll() {
   renderCartBadge();
   renderCart();
   renderAdmin();
-  renderOrders(); // ✅ NEW
+  renderOrders();
+  renderMyOrders();
 }
 
 renderAll();

@@ -30,11 +30,16 @@
         <button class="navItem active" data-page="home" type="button">Home</button>
         <button class="navItem" data-page="shop" type="button">Shop</button>
 
-        <!-- ✅ NEW: Help & Support (everyone can see) -->
+        <!-- ✅ NEW: Help & Support -->
         <button class="navItem" data-page="help" type="button">Help & Support</button>
 
-        <!-- ✅ Admin-only tabs -->
+        <!-- ✅ NEW: My Orders (customers) -->
+        <button id="navMyOrders" class="navItem hidden" data-page="myorders" type="button">My Orders</button>
+
+        <!-- ✅ NEW: Orders (admin-only) -->
         <button id="navOrders" class="navItem hidden" data-page="orders" type="button">Orders</button>
+
+        <!-- Admin -->
         <button id="navAdmin" class="navItem hidden" data-page="admin" type="button">Admin</button>
       </nav>
 
@@ -113,7 +118,7 @@
         <div id="shopGrid" class="grid amazon"></div>
       </section>
 
-      <!-- ✅ NEW: HELP & SUPPORT -->
+      <!-- ✅ HELP -->
       <section id="page-help" class="page hidden">
         <div class="sectionHeader">
           <h2>Help & Support</h2>
@@ -145,7 +150,22 @@
         </div>
       </section>
 
-      <!-- ✅ NEW: ORDERS (ADMIN ONLY) -->
+      <!-- ✅ MY ORDERS (CUSTOMER) -->
+      <section id="page-myorders" class="page hidden">
+        <div class="sectionHeader">
+          <h2>My Orders</h2>
+          <p class="muted">Your past orders</p>
+        </div>
+
+        <div class="ordersWrap">
+          <div class="card">
+            <h3>Orders</h3>
+            <div id="myOrdersList" class="ordersList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ✅ ORDERS (ADMIN ONLY) -->
       <section id="page-orders" class="page hidden">
         <div class="sectionHeader">
           <h2>Orders</h2>
